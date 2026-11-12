@@ -560,13 +560,14 @@ if sin_resultados:
         + ", ".join(sin_resultados)
     )
 
-tab_mapa, tab_priorizacion, tab_mensual, tab_semanal, tab_proyeccion, tab_modelos = st.tabs(
+tab_mapa, tab_priorizacion, tab_mensual, tab_semanal, tab_proyeccion, tab_modelos, tab_metodologia = st.tabs(
     ["Mapa", 
      "Priorización municipal", 
      "Evolución mensual", 
      "Evolución semanal", 
      "Proyección 2026-2030",
-     "Modelos y calidad",]
+     "Modelos y calidad",
+     "Metodología y limitaciones"]
 )
 
 st.sidebar.header("Filtros")
@@ -1630,4 +1631,163 @@ with tab_modelos:
     st.info(
         "Las cifras corresponden a casos notificados al sistema de vigilancia, "
         "no a incidencia real ni riesgo individual."
+    )
+
+with tab_metodologia:
+    st.subheader("Metodología y limitaciones")
+
+    st.markdown("### Qué mide NUTRIPREDICT")
+
+    st.write(
+        """
+        NUTRIPREDICT analiza la evolución de las notificaciones de desnutrición
+        aguda infantil correspondientes al evento 113 de SIVIGILA en Colombia.
+
+        La unidad de análisis es la **notificación**, no la persona. Por ello,
+        las cifras no deben interpretarse como incidencia real, prevalencia,
+        riesgo individual ni diagnóstico clínico.
+        """
+    )
+
+    st.markdown("### Fuentes y período")
+
+    st.write(
+        """
+        - **Fuente principal:** notificaciones del evento 113 de SIVIGILA.
+        - **Período analizado:** 2016 a 2025.
+        - **Unidad territorial:** municipio de residencia, identificado con DIVIPOLA.
+        - **Frecuencias:** mensual y semanal epidemiológica.
+        - **Proyección:** 2026 a 2030.
+        """
+    )
+
+    st.markdown("### Cómo se construyeron los modelos")
+
+    st.write(
+        """
+        El análisis utiliza varios enfoques complementarios:
+
+        - Modelos de referencia, como último valor observado, promedios móviles
+          y pronóstico estacional ingenuo.
+        - Modelos de aprendizaje automático, incluyendo Random Forest, XGBoost
+          y LightGBM.
+        - Modelos de conteos, incluyendo GLM Poisson y binomial negativa.
+        - Modelos de series de tiempo, incluyendo suavizamiento exponencial,
+          Holt-Winters y SARIMA/SARIMAX.
+        - Una red neuronal GRU global con pérdida de Poisson.
+
+        Los modelos usan información disponible hasta el periodo anterior. Es decir,
+        para predecir un mes o una semana, no utilizan el valor del periodo que se
+        quiere predecir.
+        """
+    )
+
+    st.markdown("### Validación y selección")
+
+    st.write(
+        """
+        La selección de modelos e hiperparámetros se realizó únicamente con la
+        validación de 2023. El período de prueba, 2024–2025, se utilizó para
+        evaluar el desempeño final, pero no para elegir modelos.
+
+        El modelo final mensual es **LightGBM Poisson** y el modelo final semanal
+        es **Ensamble LGBXGB**.
+        """
+    )
+
+    st.markdown("### Proyecciones 2026–2030")
+
+    st.write(
+        """
+        Las proyecciones de largo plazo son escenarios de planeación, no predicciones
+        deterministas. Se construyen a partir de un nivel base, una tendencia
+        departamental amortiguada y tres escenarios de crecimiento: bajo, central y alto.
+
+        El escenario central limita el crecimiento anual para evitar extrapolaciones
+        extremas. Los escenarios bajo y alto representan variaciones de planeación,
+        no límites estadísticos exactos.
+        """
+    )
+
+    st.markdown("### Índice de priorización relativa")
+
+    st.write(
+        """
+        El IPR es un índice relativo entre municipios. Sirve para ordenar territorios
+        según volumen esperado, composición rural e indígena de los casos notificados
+        y, cuando está disponible, tasa poblacional.
+
+        El IPR **no es un diagnóstico**, no mide riesgo individual y no debe usarse
+        para asignar recursos sin revisar el contexto territorial.
+        """
+    )
+
+    st.markdown("### Limitaciones principales")
+
+    st.warning(
+        """
+        **1. Notificaciones, no incidencia real.**  
+        Las cifras corresponden a casos notificados al sistema de vigilancia. No
+        capturan necesariamente todos los casos de desnutrición aguda infantil.
+        """
+    )
+
+    st.warning(
+        """
+        **2. Cambios en la capacidad de notificación.**  
+        Variaciones en la detección, reporte, acceso a servicios de salud o
+        actualización de registros pueden afectar las tendencias observadas.
+        """
+    )
+
+    st.warning(
+        """
+        **3. Municipios con baja confiabilidad.**  
+        Los municipios con pocos casos notificados en los últimos dos años tienen
+        proyecciones e índices más inestables. Deben interpretarse con precaución.
+        """
+    )
+
+    st.warning(
+        """
+        **4. Ruralidad e indigenidad.**  
+        Las variables de ruralidad e indigenidad describen la composición de los
+        casos notificados, no la composición poblacional total del municipio.
+        """
+    )
+
+    st.warning(
+        """
+        **5. Proyecciones de largo plazo.**  
+        Las proyecciones 2026–2030 dependen de supuestos explícitos y no incorporan
+        cambios futuros en políticas públicas, financiación, cobertura de salud,
+        seguridad alimentaria, migración, conflictos o capacidad de notificación.
+        """
+    )
+
+    st.warning(
+        """
+        **6. Cobertura cartográfica.**  
+        Algunos territorios pueden aparecer en los resultados pero no tener geometría
+        disponible en la cartografía utilizada. Esto no elimina sus resultados, pero
+        impide mostrarlos en el mapa municipal.
+        """
+    )
+
+    st.markdown("### Uso responsable")
+
+    st.info(
+        """
+        Este dashboard es una herramienta de exploración y priorización relativa.
+        No reemplaza la vigilancia epidemiológica, la valoración clínica, la
+        intervención territorial ni la toma de decisiones basada en evidencia local.
+        """
+    )
+
+    st.info(
+        """
+        Para decisiones operativas, el IPR debe complementarse con información local:
+        población infantil, cobertura de servicios, acceso a alimentos, condiciones
+        socioeconómicas, capacidad institucional y evidencia territorial.
+        """
     )
