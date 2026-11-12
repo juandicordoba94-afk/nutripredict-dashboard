@@ -149,6 +149,40 @@ with st.expander("Ver columnas y primeras filas"):
     st.write(df.columns.tolist())
     st.dataframe(df.head(), hide_index=True)
 
+codigos_resultados = set(df["DIVIPOLA"])
+codigos_geo = {
+    elemento["properties"]["divipola_mun"]
+    for elemento in geo_mun["features"]
+}
+
+sin_geometria = sorted(codigos_resultados - codigos_geo)
+sin_resultados = sorted(codigos_geo - codigos_resultados)
+
+st.subheader("Comprobación de cobertura territorial")
+
+st.write("Municipios con resultados:", len(codigos_resultados))
+st.write("Municipios con geometría:", len(codigos_geo))
+st.write("Con resultados pero sin geometría:", len(sin_geometria))
+st.write("Con geometría pero sin resultados:", len(sin_resultados))
+
+if sin_geometria:
+    st.warning(
+        "Municipios con resultados pero sin geometría en el GeoJSON:"
+    )
+    st.dataframe(
+        df[df["DIVIPOLA"].isin(sin_geometria)][[
+            "DIVIPOLA", "DPTO", "MUNICIPIO", "CASOS_REALES",
+            "CASOS_PRED", "PROY_2030", "IPR", "CONFIABILIDAD"
+        ]],
+        hide_index=True,
+    )
+
+if sin_resultados:
+    st.info(
+        "Municipios con geometría pero sin resultados en el JSON: "
+        + ", ".join(sin_resultados)
+    )
+
 st.sidebar.header("Filtros")
 
 nivel = st.sidebar.radio(
