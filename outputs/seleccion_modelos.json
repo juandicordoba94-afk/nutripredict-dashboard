@@ -1,0 +1,91 @@
+{
+  "M": {
+    "parametros": {
+      "PRED_LGB": {
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "reg_lambda": 10,
+        "num_leaves": 31,
+        "n_estimators": 400,
+        "min_child_samples": 50,
+        "learning_rate": 0.05,
+        "colsample_bytree": 0.9
+      },
+      "PRED_XGB": {
+        "subsample": 0.9,
+        "n_estimators": 400,
+        "min_child_weight": 1,
+        "max_depth": 5,
+        "learning_rate": 0.05,
+        "colsample_bytree": 0.9
+      },
+      "PRED_RF": {
+        "n_estimators": 150,
+        "min_samples_leaf": 10,
+        "max_features": 0.8,
+        "max_depth": 12
+      }
+    },
+    "devianza_val": {
+      "PRED_LGB": 1.115323316924772,
+      "PRED_XGB": 1.1294115333758232,
+      "PRED_RF": 1.1447466870570362
+    },
+    "seleccionado": {
+      "clave": "PRED_LGB",
+      "nombre": "LightGBM (Poisson)",
+      "nivel": "Municipal",
+      "criterio": "menor RMSE en validación 2023"
+    },
+    "mejor_validacion_por_nivel": {
+      "Municipal": "LightGBM (Poisson)",
+      "Departamental": "LightGBM (Poisson)",
+      "Nacional": "LightGBM (Poisson)"
+    }
+  },
+  "W": {
+    "parametros": {
+      "PRED_LGB": {
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "reg_lambda": 10,
+        "num_leaves": 31,
+        "n_estimators": 400,
+        "min_child_samples": 50,
+        "learning_rate": 0.05,
+        "colsample_bytree": 0.9
+      },
+      "PRED_XGB": {
+        "subsample": 0.7,
+        "n_estimators": 400,
+        "min_child_weight": 1,
+        "max_depth": 5,
+        "learning_rate": 0.1,
+        "colsample_bytree": 0.9
+      },
+      "PRED_RF": {
+        "n_estimators": 150,
+        "min_samples_leaf": 40,
+        "max_features": 0.5,
+        "max_depth": 12
+      }
+    },
+    "devianza_val": {
+      "PRED_LGB": 0.5740151208338319,
+      "PRED_XGB": 0.5751307524624228,
+      "PRED_RF": 0.5774769953587012
+    },
+    "seleccionado": {
+      "clave": "PRED_XGB",
+      "nombre": "XGBoost (Poisson)",
+      "nivel": "Municipal",
+      "criterio": "menor RMSE en validación 2023"
+    },
+    "mejor_validacion_por_nivel": {
+      "Municipal": "XGBoost (Poisson)",
+      "Municipal (estables)": "XGBoost (Poisson)",
+      "Departamental": "XGBoost (Poisson)",
+      "Nacional": "LightGBM (Poisson)"
+    }
+  }
+}
