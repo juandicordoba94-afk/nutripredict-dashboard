@@ -102,3 +102,20 @@ print(f"\nFilas duplicadas en resultados: {len(duplicados)}")
 if not duplicados.empty:
     columnas = [columna for columna in ["DIVIPOLA", "DPTO", "MUNICIPIO"] if columna in df.columns]
     print(duplicados[columnas].to_string(index=False))
+
+
+
+with open("data/resultados_nutripredict.json", encoding="utf-8-sig") as f:
+    datos = json.load(f)
+
+df = pd.DataFrame(datos)
+
+columnas = ["DIVIPOLA", "MUNICIPIO", "TASA_100K", "RURAL", "INDIGENA"]
+
+print(df[columnas].head(15))
+print()
+print("Valores no nulos:")
+print(df[columnas].notna().sum())
+print()
+print("Tipos de datos:")
+print(df[columnas].dtypes)

@@ -1,4 +1,4 @@
-import json
+﻿import json
 from pathlib import Path
 
 import pandas as pd
@@ -15,7 +15,7 @@ st.set_page_config(
 
 st.title("NUTRIPREDICT Colombia 2030")
 st.caption(
-    "Primera prueba: archivos, códigos territoriales y mapas."
+    "Primera prueba: archivos, codigos territoriales y mapas."
 )
 
 
@@ -23,6 +23,10 @@ st.caption(
 def leer_json(ruta):
     with open(ruta, encoding="utf-8-sig") as archivo:
         return json.load(archivo)
+
+@st.cache_data
+def leer_parquet(ruta):
+    return pd.read_parquet(ruta)
 
 
 archivos = {
@@ -45,6 +49,253 @@ if faltantes:
 resultados = leer_json(archivos["resultados"])
 geo_dep = leer_json(archivos["departamentos"])
 geo_mun = leer_json(archivos["municipios"])
+
+RUTA_PANEL_MENSUAL = DATA / "panel_mensual.parquet"
+
+if not RUTA_PANEL_MENSUAL.exists():
+    st.error(
+        "No se encontró el archivo panel_mensual.parquet. "
+        "Revísalo en la carpeta data/."
+    )
+    st.stop()
+
+panel_mensual = leer_parquet(RUTA_PANEL_MENSUAL)
+
+RUTA_PANEL_SEMANAL = DATA / "panel_semanal.parquet"
+
+if not RUTA_PANEL_SEMANAL.exists():
+    st.error(
+        "No se encontró el archivo panel_semanal.parquet. "
+        "Revísalo en la carpeta data/."
+    )
+    st.stop()
+
+panel_semanal = leer_parquet(RUTA_PANEL_SEMANAL)
+
+RUTA_EXCEL = ROOT / "outputs" / "resultados_consolidados.xlsx"
+
+if not RUTA_EXCEL.exists():
+    st.error(
+        "No se encontró el archivo resultados_consolidados.xlsx. "
+        "Revísalo en la carpeta outputs/."
+    )
+    st.stop()
+
+
+@st.cache_data
+def leer_excel(ruta, hoja):
+    return pd.read_excel(ruta, sheet_name=hoja)
+
+
+proy_nacional = leer_excel(RUTA_EXCEL, "Proy_Nacional")
+proy_departamental = leer_excel(RUTA_EXCEL, "Proy_Departamental")
+proy_municipal = leer_excel(RUTA_EXCEL, "Proy_Municipal")
+
+def normalizar_columnas_proyeccion(df):
+    renombres = {}
+
+    for columna in df.columns:
+        clave = "".join(
+            caracter
+            for caracter in str(columna).casefold()
+            if caracter.isalnum()
+        )
+
+        equivalencias = {
+            "anio": "ANIO",
+            "año": "ANIO",
+            "escenario": "ESCENARIO",
+            "proyeccion": "PROYECCION",
+            "ic80bajo": "IC80BAJO",
+            "ic80alto": "IC80ALTO",
+            "coddpto": "CODDPTO",
+            "coddepto": "CODDPTO",
+            "codigodepartamento": "CODDPTO",
+            "departamento": "DEPARTAMENTO",
+            "divipolaresidencia": "DIVIPOLA",
+            "departamentoresidencia": "DPTO",
+            "municipioresidencia": "MUNICIPIO",
+        }
+
+        destino = equivalencias.get(clave)
+
+        if destino and destino not in df.columns:
+            renombres[columna] = destino
+
+    return df.rename(columns=renombres)
+
+
+proy_nacional = normalizar_columnas_proyeccion(proy_nacional)
+proy_departamental = normalizar_columnas_proyeccion(proy_departamental)
+proy_municipal = normalizar_columnas_proyeccion(proy_municipal)
+
+# Las hojas nacional y municipal guardan los escenarios en columnas separadas.
+escenarios = ["BAJO", "CENTRAL", "ALTO"]
+if {"ANIO", *escenarios, "IC80BAJO", "IC80ALTO"}.issubset(
+    proy_nacional.columns
+):
+    proy_nacional = proy_nacional.melt(
+        id_vars=["ANIO", "IC80BAJO", "IC80ALTO"],
+        value_vars=escenarios,
+        var_name="ESCENARIO",
+        value_name="PROYECCION",
+    )
+
+columnas_escenario_municipal = [
+    columna
+    for columna in proy_municipal.columns
+    if str(columna).startswith("PROY_")
+    and str(columna).endswith(tuple(f"_{escenario}" for escenario in escenarios))
+]
+if columnas_escenario_municipal and {
+    "DIVIPOLA",
+    "DPTO",
+    "MUNICIPIO",
+}.issubset(proy_municipal.columns):
+    # Conserva los metadatos y los intervalos P10/P90 al pasar a formato largo.
+    columnas_id_municipal = [
+        columna
+        for columna in proy_municipal.columns
+        if columna not in columnas_escenario_municipal
+    ]
+    proy_municipal = proy_municipal.melt(
+        id_vars=columnas_id_municipal,
+        value_vars=columnas_escenario_municipal,
+        var_name="ANIO_ESCENARIO",
+        value_name="PROYECCION",
+    )
+    extraido = proy_municipal["ANIO_ESCENARIO"].str.extract(
+        r"PROY_(\d{4})_(BAJO|CENTRAL|ALTO)"
+    )
+    proy_municipal["ANIO"] = pd.to_numeric(extraido[0], errors="coerce")
+    proy_municipal["ESCENARIO"] = extraido[1]
+    proy_municipal = proy_municipal.drop(columns="ANIO_ESCENARIO")
+
+
+def tabla_escenarios(df):
+    """Conserva las demás columnas y expande los escenarios a columnas."""
+    columnas_id = [
+        columna
+        for columna in df.columns
+        if columna not in {
+            "ESCENARIO",
+            "PROYECCION",
+            "IC80BAJO",
+            "IC80ALTO",
+        }
+    ]
+    tabla = (
+        df.pivot(
+            index=columnas_id,
+            columns="ESCENARIO",
+            values="PROYECCION",
+        )
+        .reset_index()
+    )
+    tabla.columns.name = None
+    columnas = columnas_id + [
+        escenario for escenario in escenarios if escenario in tabla.columns
+    ]
+    return tabla[columnas]
+
+
+formato_escenarios = {
+    escenario: st.column_config.NumberColumn(escenario, format="%.0f")
+    for escenario in escenarios
+}
+
+# Unifica los nombres del Parquet con los que utiliza la interfaz. Así se
+# aceptan variantes con guiones bajos, espacios y diferencias de mayúsculas.
+columnas_interfaz = {
+    "divipolaresidencia": "DIVIPOLARESIDENCIA",
+    "departamentoresidencia": "Departamentoresidencia",
+    "municipioresidencia": "Municipioresidencia",
+    "aniomesdt": "ANIOMESDT",
+    "casosrural": "CASOSRURAL",
+    "casosindigena": "CASOSINDIGENA",
+}
+renombres_panel = {}
+for columna in panel_mensual.columns:
+    clave = "".join(caracter for caracter in str(columna).casefold() if caracter.isalnum())
+    destino = columnas_interfaz.get(clave)
+    if destino and destino not in panel_mensual.columns:
+        renombres_panel[columna] = destino
+
+panel_mensual = panel_mensual.rename(columns=renombres_panel)
+
+columnas_semanal = {
+    "divipolaresidencia": "DIVIPOLARESIDENCIA",
+    "departamentoresidencia": "Departamentoresidencia",
+    "municipioresidencia": "Municipioresidencia",
+    "anoepi": "ANOEPI",
+    "semepi": "SEMEPI",
+    "semanaini": "SEMANAINI",
+    "casosrural": "CASOSRURAL",
+    "casosindigena": "CASOSINDIGENA",
+}
+
+renombres_semanal = {}
+
+for columna in panel_semanal.columns:
+    clave = "".join(
+        caracter
+        for caracter in str(columna).casefold()
+        if caracter.isalnum()
+    )
+
+    destino = columnas_semanal.get(clave)
+
+    if destino and destino not in panel_semanal.columns:
+        renombres_semanal[columna] = destino
+
+panel_semanal = panel_semanal.rename(columns=renombres_semanal)
+
+columnas_requeridas_panel = {
+    "DIVIPOLARESIDENCIA",
+    "Departamentoresidencia",
+    "Municipioresidencia",
+    "ANIOMESDT",
+    "CASOS",
+    "CASOSRURAL",
+    "CASOSINDIGENA",
+}
+
+faltan_panel = columnas_requeridas_panel - set(panel_mensual.columns)
+
+if faltan_panel:
+    st.error(
+        "El panel mensual no contiene estas columnas: "
+        + ", ".join(sorted(faltan_panel))
+    )
+    st.write("Columnas disponibles:", panel_mensual.columns.tolist())
+    st.stop()
+
+
+columnas_requeridas_semanal = {
+    "DIVIPOLARESIDENCIA",
+    "Departamentoresidencia",
+    "Municipioresidencia",
+    "SEMANAINI",
+    "CASOS",
+    "CASOSRURAL",
+    "CASOSINDIGENA",
+}
+
+faltan_semanal = (
+    columnas_requeridas_semanal
+    - set(panel_semanal.columns)
+)
+
+if faltan_semanal:
+    st.error(
+        "El panel semanal no contiene estas columnas: "
+        + ", ".join(sorted(faltan_semanal))
+    )
+    st.write(
+        "Columnas disponibles:",
+        panel_semanal.columns.tolist(),
+    )
+    st.stop()
 
 if not isinstance(resultados, list):
     st.error(
@@ -86,12 +337,12 @@ if not df["DIVIPOLA"].str.fullmatch(r"\d{5}", na=False).all():
 
 if df["DIVIPOLA"].duplicated().any():
     st.error(
-        "El JSON tiene más de una fila por municipio. "
+        "El JSON tiene mas de una fila por municipio. "
         "Revisemos su estructura antes de agregar resultados."
     )
     st.stop()
 
-# El código de departamento son los primeros dos dígitos del DIVIPOLA.
+# El codigo de departamento son los primeros dos dígitos del DIVIPOLA.
 df["CODDPTO"] = df["DIVIPOLA"].str[:2]
 
 columnas_numericas = [
@@ -103,7 +354,6 @@ columnas_numericas = [
     "PROY_2030_P10",
     "PROY_2030_P90",
     "ESPERADOS_SIGUIENTE_ANIO",
-    "TASA_100K",
     "RURAL",
     "INDIGENA",
     "IPR",
@@ -111,7 +361,15 @@ columnas_numericas = [
 
 for columna in columnas_numericas:
     if columna in df.columns:
-        df[columna] = pd.to_numeric(df[columna], errors="coerce")
+        valores = df[columna]
+        if columna in {"RURAL", "INDIGENA"}:
+            # El JSON guarda estos porcentajes como texto, por ejemplo "84.7%".
+            valores = (
+                valores.astype("string")
+                .str.strip()
+                .str.replace("%", "", regex=False)
+            )
+        df[columna] = pd.to_numeric(valores, errors="coerce")
 
 for geo, campo, longitud in [
     (geo_dep, "divipola_dep", 2),
@@ -137,12 +395,12 @@ codigos_geo = {
 
 sin_geometria = sorted(set(df["DIVIPOLA"]) - codigos_geo)
 
-st.subheader("Comprobación de datos")
+st.subheader("Comprobacion de datos")
 st.write("Municipios en los resultados:", len(df))
-st.write("Municipios sin geometría:", len(sin_geometria))
+st.write("Municipios sin geometria:", len(sin_geometria))
 
 if sin_geometria:
-    st.warning("Estos códigos requieren revisión:")
+    st.warning("Estos codigos requieren revision:")
     st.write(sin_geometria)
 
 with st.expander("Ver columnas y primeras filas"):
@@ -158,16 +416,16 @@ codigos_geo = {
 sin_geometria = sorted(codigos_resultados - codigos_geo)
 sin_resultados = sorted(codigos_geo - codigos_resultados)
 
-st.subheader("Comprobación de cobertura territorial")
+st.subheader("Comprobacion de cobertura territorial")
 
 st.write("Municipios con resultados:", len(codigos_resultados))
-st.write("Municipios con geometría:", len(codigos_geo))
-st.write("Con resultados pero sin geometría:", len(sin_geometria))
-st.write("Con geometría pero sin resultados:", len(sin_resultados))
+st.write("Municipios con geometria:", len(codigos_geo))
+st.write("Con resultados pero sin geometria:", len(sin_geometria))
+st.write("Con geometria pero sin resultados:", len(sin_resultados))
 
 if sin_geometria:
     st.warning(
-        "Municipios con resultados pero sin geometría en el GeoJSON:"
+        "Municipios con resultados pero sin geometria en el GeoJSON:"
     )
     st.dataframe(
         df[df["DIVIPOLA"].isin(sin_geometria)][[
@@ -179,9 +437,17 @@ if sin_geometria:
 
 if sin_resultados:
     st.info(
-        "Municipios con geometría pero sin resultados en el JSON: "
+        "Municipios con geometria pero sin resultados en el JSON: "
         + ", ".join(sin_resultados)
     )
+
+tab_mapa, tab_priorizacion, tab_mensual, tab_semanal, tab_proyeccion = st.tabs(
+    ["Mapa", 
+     "Priorización municipal", 
+     "Evolución mensual", 
+     "Evolución semanal", 
+     "Proyección"]
+)
 
 st.sidebar.header("Filtros")
 
@@ -231,7 +497,7 @@ else:
         hover_data=["DPTO", "PROY_2030", "CASOS_PRED", "RANGO", "CONFIABILIDAD"],
         color_continuous_scale="YlOrRd",
         range_color=(0, 100),
-        title="Índice de priorización municipal",
+        title="Indice de priorizacion municipal",
     )
 
 fig.update_geos(
@@ -245,15 +511,722 @@ fig.update_layout(
     margin=dict(l=0, r=0, t=50, b=0),
 )
 
-st.plotly_chart(fig, use_container_width=True)
+with tab_mapa:
+    st.plotly_chart(fig, use_container_width=True)
 
-st.caption(
-    "Cartografía: Marco Geoestadístico Nacional 2025, DANE. "
-    "Simplificación: github.com/ytolosa/mapas-colombia, CC BY 4.0. "
-    "San Andrés y Providencia se muestran desplazados y ampliados."
-)
+    st.caption(
+    "El IPR es una prioridad relativa municipal, no un diagnostico individual. "
+    "Rural e indigena corresponden a la composicion de los casos notificados, "
+    "no a la composicion poblacional del municipio."
+    )
 
-st.info(
-    "El IPR es una prioridad relativa municipal, no un diagnóstico. "
-    "Las cifras corresponden a notificaciones, no a incidencia real."
-)
+with tab_priorizacion:
+    st.subheader("Priorizacion municipal")
+
+    st.caption(
+        "La tabla muestra los municipios con mayor indice de Priorizacion Relativa (IPR). "
+        "El IPR es una prioridad relativa entre municipios, no un diagnostico individual."
+    )
+
+    columnas_tabla = [
+        "DIVIPOLA",
+        "DPTO",
+        "MUNICIPIO",
+        "CASOS_REALES",
+        "CASOS_PRED",
+        "PROY_2030",
+        "RURAL",
+        "INDIGENA",
+        "IPR",
+        "RANGO",
+        "CONFIABILIDAD",
+    ]
+
+    columnas_disponibles = [
+        columna
+        for columna in columnas_tabla
+        if columna in df.columns
+    ]
+
+    if "IPR" not in columnas_disponibles:
+        st.error("La columna IPR no esta disponible en el JSON.")
+        st.stop()
+
+    df_prioridad = df_vista.copy()
+
+    df_prioridad["IPR"] = pd.to_numeric(
+        df_prioridad["IPR"],
+        errors="coerce",
+    )
+
+    df_prioridad = df_prioridad.sort_values(
+        "IPR",
+        ascending=False,
+        na_position="last",
+    )
+
+    if "RANGO" in df_prioridad.columns:
+        orden_rango = {
+            "CRITICO": 0,
+            "ALTO": 1,
+            "MEDIO": 2,
+            "BAJO": 3,
+        }
+
+        df_prioridad["ORDEN_RANGO"] = (
+            df_prioridad["RANGO"]
+            .astype("string")
+            .str.strip()
+            .str.upper()
+            .map(orden_rango)
+            .fillna(99)
+        )
+
+        df_prioridad = df_prioridad.sort_values(
+            ["ORDEN_RANGO", "IPR"],
+            ascending=[True, False],
+            na_position="last",
+        )
+
+        df_prioridad = df_prioridad.drop(columns="ORDEN_RANGO")
+
+    top_n = st.slider(
+        "Numero de municipios a mostrar",
+        min_value=10,
+        max_value=50,
+        value=15,
+        step=5,
+    )
+
+    tabla_prioridad = df_prioridad.head(top_n)[columnas_disponibles]
+
+    columnas_formato = {
+    "CASOS_REALES": st.column_config.NumberColumn(
+        "Casos reales",
+        format="%.0f",
+    ),
+    "CASOS_PRED": st.column_config.NumberColumn(
+        "Casos predichos",
+        format="%.0f",
+    ),
+    "PROY_2030": st.column_config.NumberColumn(
+        "Proyeccion 2030",
+        format="%.0f",
+    ),
+    "RURAL": st.column_config.NumberColumn(
+        "Casos rurales (%)",
+        format="%.1f%%",
+    ),
+    "INDIGENA": st.column_config.NumberColumn(
+        "Casos indigenas (%)",
+        format="%.1f%%",
+    ),
+    "IPR": st.column_config.NumberColumn(
+        "IPR",
+        format="%.2f",
+    ),
+    }   
+
+    st.dataframe(
+        tabla_prioridad,
+        hide_index=True,
+        use_container_width=True,
+        column_config=columnas_formato,
+    )
+
+    st.download_button(
+        label="Descargar tabla de priorizacion en CSV",
+        data=tabla_prioridad.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig"),
+        file_name="priorizacion_municipal.csv",
+        mime="text/csv",
+    )
+
+    st.info(
+        "Los municipios con confiabilidad baja tienen pocos casos notificados "
+        "en los ultimos dos años; sus proyecciones e indices son mas inestables."
+    )
+
+with tab_mensual:
+    st.subheader("Evolución mensual por municipio")
+
+    st.caption(
+        "La línea muestra casos notificados por municipio y mes. "
+        "No representa incidencia real ni riesgo individual."
+    )
+
+    departamentos_mensuales = sorted(
+        panel_mensual["Departamentoresidencia"]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    departamento_mensual = st.selectbox(
+        "Departamento",
+        departamentos_mensuales,
+        key="departamento_mensual",
+    )
+
+    municipios_mensuales = (
+        panel_mensual
+        .loc[
+            panel_mensual["Departamentoresidencia"]
+            == departamento_mensual,
+            "Municipioresidencia",
+        ]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    municipio_mensual = st.selectbox(
+        "Municipio",
+        sorted(municipios_mensuales),
+        key="municipio_mensual",
+    )
+
+    df_mensual = panel_mensual.loc[
+        (panel_mensual["Departamentoresidencia"] == departamento_mensual)
+        & (panel_mensual["Municipioresidencia"] == municipio_mensual)
+    ].copy()
+
+    if df_mensual.empty:
+        st.warning(
+            "No hay datos mensuales para este municipio."
+        )
+    else:
+        df_mensual["ANIOMESDT"] = pd.to_datetime(
+            df_mensual["ANIOMESDT"],
+            errors="coerce",
+        )
+
+        df_mensual = df_mensual.dropna(
+            subset=["ANIOMESDT"]
+        ).sort_values("ANIOMESDT")
+
+        fecha_minima = df_mensual["ANIOMESDT"].min()
+        fecha_maxima = df_mensual["ANIOMESDT"].max()
+
+        rango_fechas = st.slider(
+            "Rango de fechas",
+            min_value=fecha_minima.to_pydatetime(),
+            max_value=fecha_maxima.to_pydatetime(),
+            value=(
+                fecha_minima.to_pydatetime(),
+                fecha_maxima.to_pydatetime(),
+            ),
+            format="MM/YYYY",
+        )
+
+        fecha_inicio, fecha_fin = rango_fechas
+
+        df_mensual = df_mensual.loc[
+            (df_mensual["ANIOMESDT"] >= pd.Timestamp(fecha_inicio))
+            & (df_mensual["ANIOMESDT"] <= pd.Timestamp(fecha_fin))
+        ]
+
+        if df_mensual.empty:
+            st.warning(
+                "No hay datos en el rango de fechas seleccionado."
+            )
+        else:
+            fig_mensual = px.line(
+                df_mensual,
+                x="ANIOMESDT",
+                y="CASOS",
+                title=(
+                    f"Casos notificados por mes: "
+                    f"{municipio_mensual}, {departamento_mensual}"
+                ),
+                labels={
+                    "ANIOMESDT": "Mes",
+                    "CASOS": "Casos notificados",
+                },
+            )
+
+            fig_mensual.update_traces(
+                mode="lines+markers",
+                line=dict(width=2),
+                marker=dict(size=5),
+            )
+
+            fig_mensual.update_layout(
+                height=450,
+                margin=dict(l=0, r=0, t=50, b=0),
+                hovermode="x unified",
+            )
+
+            st.plotly_chart(
+                fig_mensual,
+                use_container_width=True,
+            )
+
+            with st.expander("Ver datos mensuales"):
+                st.dataframe(
+                    df_mensual[[
+                        "ANIOMESDT",
+                        "CASOS",
+                        "CASOSRURAL",
+                        "CASOSINDIGENA",
+                    ]],
+                    hide_index=True,
+                    use_container_width=True,
+                )
+
+            st.download_button(
+                label="Descargar datos mensuales en CSV",
+                data=df_mensual.to_csv(
+                    index=False,
+                    encoding="utf-8-sig",
+                ).encode("utf-8-sig"),
+                file_name=(
+                    f"evolucion_mensual_"
+                    f"{municipio_mensual.replace(' ', '_')}.csv"
+                ),
+                mime="text/csv",
+            )
+
+with tab_semanal:
+    st.subheader("Evolución semanal por municipio")
+    st.caption(
+        "La línea muestra casos notificados por semana epidemiológica. "
+        "No representa incidencia real ni riesgo individual."
+    )
+
+    departamentos_semanales = sorted(
+        panel_semanal["Departamentoresidencia"]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    departamento_semanal = st.selectbox(
+        "Departamento",
+        departamentos_semanales,
+        key="departamento_semanal",
+    )
+
+    municipios_semanales = sorted(
+        panel_semanal.loc[
+            panel_semanal["Departamentoresidencia"] == departamento_semanal,
+            "Municipioresidencia",
+        ]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    municipio_semanal = st.selectbox(
+        "Municipio",
+        municipios_semanales,
+        key="municipio_semanal",
+    )
+
+    df_semanal = panel_semanal.loc[
+        (panel_semanal["Departamentoresidencia"] == departamento_semanal)
+        & (panel_semanal["Municipioresidencia"] == municipio_semanal)
+    ].copy()
+
+    if df_semanal.empty:
+        st.warning("No hay datos semanales para este municipio.")
+    else:
+        df_semanal["SEMANAINI"] = pd.to_datetime(
+            df_semanal["SEMANAINI"],
+            errors="coerce",
+        )
+        df_semanal = df_semanal.dropna(subset=["SEMANAINI"]).sort_values(
+            "SEMANAINI"
+        )
+
+        if df_semanal.empty:
+            st.warning("El panel no contiene fechas semanales válidas.")
+        else:
+            fecha_minima = df_semanal["SEMANAINI"].min()
+            fecha_maxima = df_semanal["SEMANAINI"].max()
+
+            if fecha_minima < fecha_maxima:
+                rango_semanal = st.slider(
+                    "Rango de fechas",
+                    min_value=fecha_minima.to_pydatetime(),
+                    max_value=fecha_maxima.to_pydatetime(),
+                    value=(
+                        fecha_minima.to_pydatetime(),
+                        fecha_maxima.to_pydatetime(),
+                    ),
+                    format="DD/MM/YYYY",
+                    key="rango_semanal",
+                )
+                fecha_inicio, fecha_fin = rango_semanal
+                df_semanal = df_semanal.loc[
+                    (df_semanal["SEMANAINI"] >= pd.Timestamp(fecha_inicio))
+                    & (df_semanal["SEMANAINI"] <= pd.Timestamp(fecha_fin))
+                ]
+
+            if df_semanal.empty:
+                st.warning("No hay datos en el rango de fechas seleccionado.")
+            else:
+                fig_semanal = px.line(
+                    df_semanal,
+                    x="SEMANAINI",
+                    y="CASOS",
+                    title=(
+                        f"Casos notificados por semana: "
+                        f"{municipio_semanal}, {departamento_semanal}"
+                    ),
+                    labels={
+                        "SEMANAINI": "Semana epidemiológica (inicio)",
+                        "CASOS": "Casos notificados",
+                    },
+                )
+                fig_semanal.update_traces(
+                    mode="lines+markers",
+                    line=dict(width=2),
+                    marker=dict(size=4),
+                )
+                fig_semanal.update_layout(
+                    height=450,
+                    margin=dict(l=0, r=0, t=50, b=0),
+                    hovermode="x unified",
+                )
+                st.plotly_chart(fig_semanal, use_container_width=True)
+
+                with st.expander("Ver datos semanales"):
+                    st.dataframe(
+                        df_semanal[[
+                            "SEMANAINI",
+                            "CASOS",
+                            "CASOSRURAL",
+                            "CASOSINDIGENA",
+                        ]],
+                        hide_index=True,
+                        use_container_width=True,
+                    )
+
+                st.download_button(
+                    label="Descargar datos semanales en CSV",
+                    data=df_semanal.to_csv(
+                        index=False,
+                        encoding="utf-8-sig",
+                    ).encode("utf-8-sig"),
+                    file_name=(
+                        f"evolucion_semanal_"
+                        f"{municipio_semanal.replace(' ', '_')}.csv"
+                    ),
+                    mime="text/csv",
+                )
+
+with tab_proyeccion:
+    st.subheader("Proyección 2026–2030")
+
+    st.caption(
+        "Las proyecciones corresponden a casos notificados esperados, "
+        "no a incidencia real ni riesgo individual. "
+        "Los escenarios reflejan supuestos de planeación, no certezas."
+    )
+
+    nivel_proyeccion = st.radio(
+        "Nivel de proyección",
+        ["Nacional", "Departamental", "Municipal"],
+        horizontal=True,
+    )
+
+    if nivel_proyeccion == "Nacional":
+        columnas_requeridas = {
+            "ANIO",
+            "ESCENARIO",
+            "PROYECCION",
+        }
+
+        faltan = columnas_requeridas - set(proy_nacional.columns)
+
+        if faltan:
+            st.error(
+                "La hoja Proy_Nacional no contiene estas columnas: "
+                + ", ".join(sorted(faltan))
+            )
+            st.write(
+                "Columnas disponibles:",
+                proy_nacional.columns.tolist(),
+            )
+            st.stop()
+
+        fig_proyeccion = px.line(
+            proy_nacional,
+            x="ANIO",
+            y="PROYECCION",
+            color="ESCENARIO",
+            markers=True,
+            title="Proyección nacional de casos notificados, 2026–2030",
+            labels={
+                "ANIO": "Año",
+                "PROYECCION": "Casos notificados esperados",
+                "ESCENARIO": "Escenario",
+            },
+            color_discrete_map={
+                "BAJO": "#2ca02c",
+                "CENTRAL": "#1f77b4",
+                "ALTO": "#d62728",
+            },
+        )
+
+        if {"IC80BAJO", "IC80ALTO"}.issubset(proy_nacional.columns):
+            central = proy_nacional[
+                proy_nacional["ESCENARIO"] == "CENTRAL"
+            ].sort_values("ANIO")
+
+            fig_proyeccion.add_scatter(
+                x=central["ANIO"],
+                y=central["IC80ALTO"],
+                mode="lines",
+                name="Intervalo 80% superior",
+                line=dict(width=1, dash="dash", color="#1f77b4"),
+                showlegend=True,
+            )
+
+            fig_proyeccion.add_scatter(
+                x=central["ANIO"],
+                y=central["IC80BAJO"],
+                mode="lines",
+                name="Intervalo 80% inferior",
+                line=dict(width=1, dash="dash", color="#1f77b4"),
+                fill="tonexty",
+                fillcolor="rgba(31,119,180,0.12)",
+                showlegend=True,
+            )
+
+        st.plotly_chart(
+            fig_proyeccion,
+            use_container_width=True,
+        )
+
+        with st.expander("Ver proyección nacional"):
+            st.dataframe(
+                tabla_escenarios(proy_nacional),
+                hide_index=True,
+                use_container_width=True,
+                column_config=formato_escenarios,
+            )
+
+    elif nivel_proyeccion == "Departamental":
+        columnas_requeridas = {
+            "CODDPTO",
+            "DEPARTAMENTO",
+            "ANIO",
+            "ESCENARIO",
+            "PROYECCION",
+        }
+
+        faltan = columnas_requeridas - set(proy_departamental.columns)
+
+        if faltan:
+            st.error(
+                "La hoja Proy_Departamental no contiene estas columnas: "
+                + ", ".join(sorted(faltan))
+            )
+            st.write(
+                "Columnas disponibles:",
+                proy_departamental.columns.tolist(),
+            )
+            st.stop()
+
+        departamentos_proyeccion = sorted(
+            proy_departamental["DEPARTAMENTO"]
+            .dropna()
+            .unique()
+            .tolist()
+        )
+
+        departamento_proyeccion = st.selectbox(
+            "Departamento",
+            departamentos_proyeccion,
+            key="departamento_proyeccion",
+        )
+
+        df_departamento = proy_departamental.loc[
+            proy_departamental["DEPARTAMENTO"]
+            == departamento_proyeccion
+        ].copy()
+
+        if df_departamento.empty:
+            st.warning(
+                "No hay proyección departamental para este departamento."
+            )
+
+        else:
+            fig_proyeccion = px.line(
+                df_departamento,
+                x="ANIO",
+                y="PROYECCION",
+                color="ESCENARIO",
+                markers=True,
+                title=(
+                    f"Proyección departamental: "
+                    f"{departamento_proyeccion}, 2026–2030"
+                ),
+                labels={
+                    "ANIO": "Año",
+                    "PROYECCION": "Casos notificados esperados",
+                    "ESCENARIO": "Escenario",
+                },
+                color_discrete_map={
+                    "BAJO": "#2ca02c",
+                    "CENTRAL": "#1f77b4",
+                    "ALTO": "#d62728",
+                },
+            )
+
+            if {"IC80BAJO", "IC80ALTO"}.issubset(df_departamento.columns):
+                central = df_departamento[
+                    df_departamento["ESCENARIO"] == "CENTRAL"
+                ].sort_values("ANIO")
+
+                fig_proyeccion.add_scatter(
+                    x=central["ANIO"],
+                    y=central["IC80ALTO"],
+                    mode="lines",
+                    name="Intervalo 80% superior",
+                    line=dict(width=1, dash="dash", color="#1f77b4"),
+                    showlegend=True,
+                )
+
+                fig_proyeccion.add_scatter(
+                    x=central["ANIO"],
+                    y=central["IC80BAJO"],
+                    mode="lines",
+                    name="Intervalo 80% inferior",
+                    line=dict(width=1, dash="dash", color="#1f77b4"),
+                    fill="tonexty",
+                    fillcolor="rgba(31,119,180,0.12)",
+                    showlegend=True,
+                )
+
+            fig_proyeccion.update_layout(
+                height=450,
+                margin=dict(l=0, r=0, t=50, b=0),
+                hovermode="x unified",
+            )
+
+            st.plotly_chart(
+                fig_proyeccion,
+                use_container_width=True,
+            )
+
+            with st.expander("Ver proyección departamental"):
+                st.dataframe(
+                    tabla_escenarios(df_departamento),
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config=formato_escenarios,
+                )
+
+    else:
+        columnas_requeridas = {
+            "DIVIPOLA",
+            "DPTO",
+            "MUNICIPIO",
+            "ANIO",
+            "ESCENARIO",
+            "PROYECCION",
+        }
+
+        faltan = columnas_requeridas - set(proy_municipal.columns)
+
+        if faltan:
+            st.error(
+                "La hoja Proy_Municipal no contiene estas columnas: "
+                + ", ".join(sorted(faltan))
+            )
+            st.write(
+                "Columnas disponibles:",
+                proy_municipal.columns.tolist(),
+            )
+            st.stop()
+
+        departamentos_proyeccion = sorted(
+            proy_municipal["DPTO"]
+            .dropna()
+            .unique()
+            .tolist()
+        )
+
+        departamento_proyeccion = st.selectbox(
+            "Departamento",
+            departamentos_proyeccion,
+            key="departamento_proyeccion_municipal",
+        )
+
+        municipios_proyeccion = (
+            proy_municipal
+            .loc[
+                proy_municipal["DPTO"]
+                == departamento_proyeccion,
+                "MUNICIPIO",
+            ]
+            .dropna()
+            .unique()
+            .tolist()
+        )
+
+        municipio_proyeccion = st.selectbox(
+            "Municipio",
+            sorted(municipios_proyeccion),
+            key="municipio_proyeccion",
+        )
+
+        df_municipio = proy_municipal.loc[
+            (proy_municipal["DPTO"] == departamento_proyeccion)
+            & (proy_municipal["MUNICIPIO"] == municipio_proyeccion)
+        ].copy()
+
+        if df_municipio.empty:
+            st.warning(
+                "No hay proyección municipal para este municipio."
+            )
+
+        else:
+            fig_proyeccion = px.line(
+                df_municipio,
+                x="ANIO",
+                y="PROYECCION",
+                color="ESCENARIO",
+                markers=True,
+                title=(
+                    f"Proyección municipal: "
+                    f"{municipio_proyeccion}, {departamento_proyeccion}"
+                ),
+                labels={
+                    "ANIO": "Año",
+                    "PROYECCION": "Casos notificados esperados",
+                    "ESCENARIO": "Escenario",
+                },
+                color_discrete_map={
+                    "BAJO": "#2ca02c",
+                    "CENTRAL": "#1f77b4",
+                    "ALTO": "#d62728",
+                },
+            )
+
+            fig_proyeccion.update_layout(
+                height=450,
+                margin=dict(l=0, r=0, t=50, b=0),
+                hovermode="x unified",
+            )
+
+            st.plotly_chart(
+                fig_proyeccion,
+                use_container_width=True,
+            )
+
+            with st.expander("Ver proyección municipal"):
+                st.dataframe(
+                    tabla_escenarios(df_municipio),
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config=formato_escenarios,
+                )
+
+    st.info(
+        "La proyección de largo plazo usa supuestos explícitos de crecimiento, "
+        "amortiguamiento y escenarios. No debe interpretarse como una predicción "
+        "determinista ni como una estimación de riesgo individual."
+    )
