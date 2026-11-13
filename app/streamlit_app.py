@@ -44,7 +44,7 @@ def reset_filters():
         if key.startswith(("departamento_", "municipio_", "rango_")):
             del st.session_state[key]
 
-def render_active_filters_chips():
+def render_active_filters_chips(tab_key):
     """Muestra chips de filtros activos arriba de cada tab."""
     chips = []
     if st.session_state["filtro_nivel"] != "Municipios":
@@ -64,17 +64,166 @@ def render_active_filters_chips():
             for c in chips
         )
         st.markdown(
-            f'<div style="margin-bottom:0.5rem;">{chip_html}'
-            f'<button onclick="window.parent.postMessage({{type:\"streamlit:setComponentValue\", value:true}}, \"*\")" '
-            f'style="margin-left:0.5rem; background:#c94c4c; color:white; border:none; border-radius:999px; '
-            f'padding:0.25rem 0.75rem; font-size:0.85rem; cursor:pointer;" '
-            f'title="Restablecer filtros">🔄</button></div>',
+            f'<div style="margin-bottom:0.5rem;">{chip_html}</div>',
             unsafe_allow_html=True,
         )
-        # Botón real de Streamlit para reset (el HTML es solo visual)
-        if st.button("🔄 Restablecer filtros", key="reset_global_top", use_container_width=False, help="Limpiar todos los filtros"):
+        if st.button(
+            "🔄 Restablecer filtros",
+            key=f"reset_global_{tab_key}",
+            use_container_width=False,
+            help="Limpiar todos los filtros",
+        ):
             reset_filters()
             st.rerun()
+
+
+# ============================================================
+# MAPAS AVANZADOS — Etapa M3
+# ============================================================
+@st.cache_data
+def preparar_mapa_confiabilidad_baja(df_vista, geo_mun):
+    """
+    Prepara datos para overlay de CONFIABILIDAD BAJA.
+    Retorna GeoJSON filtrado solo con municipios de confiabilidad baja.
+    """
+    codigos_baja = set(
+        df_vista.loc[df_vista["CONFIABILIDAD"] == "BAJA", "DIVIPOLA"]
+        .astype(str)
+        .str.strip()
+        .str.zfill(5)
+    )
+    
+    features_baja = [
+        feat for feat in geo_mun["features"]
+        if feat["properties"].get("divipola_mun", "").strip().zfill(5) in codigos_baja
+    ]
+    
+    return {"type": "FeatureCollection", "features": features_baja}
+
+
+@st.cache_data
+def crear_mapa_proyeccion_animado(df_vista, geo_mun, escenario="CENTRAL"):
+    """
+    Crea un mapa coroplético animado de la proyección 2026-2030.
+    Usa proy_municipal (ya normalizado) para obtener valores por año.
+    """
+    # Preparar datos largos: DIVIPOLA, ANIO, PROYECCION
+    anios = [2026, 2027, 2028, 2029, 2030]
+    col_central = [f"PROY_{a}_CENTRAL" for a in anios]
+    col_bajo = [f"PROY_{a}_BAJO" for a in anios]
+    col_alto = [f"PROY_{a}_ALTO" for a in anios]
+    
+    # Verificar columnas disponibles en proy_municipal
+    cols_disp = set(proy_municipal.columns)
+    cols_needed = set(col_central + col_bajo + col_alto + ["DIVIPOLA_RESIDENCIA"])
+    
+    if not cols_needed.issubset(cols_disp):
+        return None
+    
+    # Filtrar proy_municipal a municipios en df_vista
+    codigos_vista = set(df_vista["DIVIPOLA"].astype(str).str.strip().str.zfill(5))
+    proy_filtrado = proy_municipal[
+        proy_municipal["DIVIPOLA_RESIDENCIA"].astype(str).str.strip().str.zfill(5).isin(codigos_vista)
+    ].copy()
+    
+    if proy_filtrado.empty:
+        return None
+    
+    # Convertir a formato largo para animación
+    rows = []
+    for _, row in proy_filtrado.iterrows():
+        divipola = str(row["DIVIPOLA_RESIDENCIA"]).strip().zfill(5)
+        for i, anio in enumerate(anios):
+            rows.append({
+                "DIVIPOLA": divipola,
+                "ANIO": anio,
+                "PROYECCION_CENTRAL": row[col_central[i]],
+                "PROYECCION_BAJO": row[col_bajo[i]],
+                "PROYECCION_ALTO": row[col_alto[i]],
+            })
+    
+    df_anim = pd.DataFrame(rows)
+    
+    # Mapa animado con Plotly Express
+    fig = px.choropleth(
+        df_anim,
+        geojson=geo_mun,
+        locations="DIVIPOLA",
+        featureidkey="properties.divipola_mun",
+        color="PROYECCION_CENTRAL",
+        animation_frame="ANIO",
+        color_continuous_scale="YlOrRd",
+        range_color=(0, df_anim["PROYECCION_CENTRAL"].max() * 1.1),
+        title=f"Proyección municipal {escenario} 2026–2030 (animado)",
+        hover_name="DIVIPOLA",
+        hover_data={
+            "PROYECCION_CENTRAL": ":.0f",
+            "PROYECCION_BAJO": ":.0f",
+            "PROYECCION_ALTO": ":.0f",
+        },
+    )
+    
+    # Configurar frames para animación suave
+    fig.update_layout(
+        height=400,
+        margin=dict(l=0, r=0, t=50, b=0),
+        transition={"duration": 800, "easing": "cubic-in-out"},
+        coloraxis_colorbar=dict(
+            title="Casos esperados",
+            len=0.7,
+            thickness=12,
+            tickfont=dict(size=10),
+        ),
+    )
+    
+    fig.update_geos(
+        fitbounds="locations",
+        visible=False,
+        projection_type="mercator",
+    )
+    
+    # Botón de play/pause más grande para táctil
+    fig.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 800
+    fig.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 400
+    
+    return fig
+
+
+def agregar_overlay_confiabilidad_baja(fig, df_vista, geo_mun):
+    """
+    Agrega un overlay con patrón para municipios CONFIABILIDAD = BAJA.
+    Usa un segundo trace choropleth con opacidad y patrón visual.
+    """
+    codigos_baja = set(
+        df_vista.loc[df_vista["CONFIABILIDAD"] == "BAJA", "DIVIPOLA"]
+        .astype(str)
+        .str.strip()
+        .str.zfill(5)
+    )
+    
+    if not codigos_baja:
+        return fig
+    
+    # Crear dataframe solo con municipios BAJA
+    df_baja = df_vista[df_vista["DIVIPOLA"].astype(str).str.strip().str.zfill(5).isin(codigos_baja)].copy()
+    
+    if df_baja.empty:
+        return fig
+    
+    # Agregar trace de overlay: color neutro con opacidad, sin colorbar
+    fig.add_choropleth(
+        geojson=geo_mun,
+        locations=df_baja["DIVIPOLA"],
+        featureidkey="properties.divipola_mun",
+        z=[1] * len(df_baja),  # Valor constante
+        colorscale=[[0, "rgba(201,76,76,0.15)"], [1, "rgba(201,76,76,0.25)"]],  # Rojo institucional translúcido
+        showscale=False,
+        hoverinfo="skip",
+        name="Confiabilidad BAJA",
+        opacity=0.3,
+    )
+    
+    return fig
 
 st.markdown(
     """
@@ -856,7 +1005,7 @@ else:
         color="IPR",
         hover_name="MUNICIPIO",
         # D2: hovertemplate rico para tocar en móvil (no solo hover)
-        custom_data=["DPTO", "PROY_2030", "CASOS_PRED", "RANGO", "CONFIABILIDAD", "IPR"],
+        custom_data=["DPTO", "PROY_2030", "CASOS_PRED", "RANGO", "CONFIABILIDAD", "IPR", "RURAL", "INDIGENA"],
         color_continuous_scale="YlOrRd",
         range_color=(ipr_min, ipr_max),
         title="Índice de Priorización Municipal (IPR)",
@@ -866,13 +1015,16 @@ else:
         hovertemplate=(
             "<b>%{hovertext}</b><br>"
             "Departamento: %{customdata[0]}<br>"
-            "IPR: %{customdata[5]:.2f}<br>"
+            "IPR: %{customdata[5]:.2f} (%{customdata[6]:.1f}% rural, %{customdata[7]:.1f}% indígena)<br>"
             "Proyección 2030: %{customdata[1]:.0f}<br>"
             "Casos predichos: %{customdata[2]:.0f}<br>"
             "Rango: %{customdata[3]}<br>"
             "Confiabilidad: %{customdata[4]}<extra></extra>"
         )
     )
+    
+    # M3: Overlay CONFIABILIDAD BAJA (municipios con pocos casos, IPR inestable)
+    fig = agregar_overlay_confiabilidad_baja(fig, df_vista, geo_mun)
 
 fig.update_geos(
     fitbounds="locations",
@@ -893,17 +1045,33 @@ fig.update_layout(
 )
 
 with tab_mapa:
-    render_active_filters_chips()
+    render_active_filters_chips("mapa")
     st.plotly_chart(fig, use_container_width=True)
+
+    # M3: Mini-mapa proyección animado (solo nivel municipal)
+    if nivel == "Municipios":
+        st.markdown("---")
+        st.subheader("📈 Proyección animada 2026–2030 (Escenario Central)")
+        st.caption(
+            "Mapa animado que muestra la evolución de la proyección central por municipio. "
+            "Use el botón ▶ para reproducir. Los municipios con confiabilidad BAJA "
+            "tienen proyecciones más inestables (ver overlay rojo en mapa principal)."
+        )
+        mapa_animado = crear_mapa_proyeccion_animado(df_vista, geo_mun, "CENTRAL")
+        if mapa_animado:
+            st.plotly_chart(mapa_animado, use_container_width=True)
+        else:
+            st.info("Datos de proyección municipal no disponibles para la vista actual.")
 
     st.caption(
     "El IPR es una prioridad relativa municipal, no un diagnostico individual. "
     "Rural e indigena corresponden a la composicion de los casos notificados, "
-    "no a la composicion poblacional del municipio."
+    "no a la composicion poblacional del municipio. "
+    "⚠ Overlay rojo = CONFIABILIDAD BAJA (< 10 casos en 24 meses; IPR inestable)."
     )
 
 with tab_priorizacion:
-    render_active_filters_chips()
+    render_active_filters_chips("priorizacion")
     st.subheader("Priorización municipal")
 
     st.caption(
@@ -1027,7 +1195,7 @@ with tab_priorizacion:
     )
 
 with tab_mensual:
-    render_active_filters_chips()
+    render_active_filters_chips("mensual")
     st.subheader("Evolución mensual por municipio")
 
     st.caption(
@@ -1187,7 +1355,7 @@ with tab_mensual:
             )
 
 with tab_semanal:
-    render_active_filters_chips()
+    render_active_filters_chips("semanal")
     st.subheader("Evolución semanal por municipio")
     st.caption(
         "La línea muestra casos notificados por semana epidemiológica. "
@@ -1336,7 +1504,7 @@ with tab_semanal:
                 )
 
 with tab_proyeccion:
-    render_active_filters_chips()
+    render_active_filters_chips("proyeccion")
     st.subheader("Proyección 2026–2030")
 
     st.caption(
@@ -1688,7 +1856,7 @@ with tab_proyeccion:
     )
 
 with tab_modelos:
-    render_active_filters_chips()
+    render_active_filters_chips("modelos")
     st.subheader("Modelos y calidad de los datos")
 
     st.caption(
@@ -1970,7 +2138,7 @@ with tab_modelos:
     )
 
 with tab_metodologia:
-    render_active_filters_chips()
+    render_active_filters_chips("metodologia")
     st.subheader("Metodología y limitaciones")
 
     st.markdown("### Qué mide NUTRIPREDICT")

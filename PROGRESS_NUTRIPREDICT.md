@@ -2,7 +2,7 @@
 
 **Última actualización:** 2026-11-13  
 **Modelo que registra:** Qwen (FreeLLMAPI Auto)  
-**Estado Git:** Rama `feature/mobile-audit-fixes` (commit `292008a` = M1 completado; trabajo M2 en curso). `main` sin cambios.
+**Estado Git:** Rama `feature/mobile-audit-fixes` (commit `104b3fe` = M2 completado; trabajo M3 en curso). `main` sin cambios.
 
 ---
 
@@ -89,6 +89,43 @@ Implementar sistema de filtros globales persistentes en `session_state`, chips d
 
 ### Archivos modificados
 - `app/streamlit_app.py` — funciones `init_filters()`, `reset_filters()`, `render_active_filters_chips()`, sidebar reescrito, `df_vista` unificado, chips en 7 tabs.
+
+---
+
+## ETAPA M3 — MAPAS AVANZADOS: CONFIABILIDAD BAJA + PROYECCIÓN ANIMADA ✅ COMPLETADA
+
+**Fecha:** 2026-11-13  
+**Rama:** `feature/mobile-audit-fixes`  
+**Commit base:** `104b3fe` (M2 completo)  
+**Archivo modificado:** `app/streamlit_app.py` (~2100 → ~2300 líneas)
+
+### Objetivo
+Implementar mejoras avanzadas de mapas táctiles:
+1. **Overlay CONFIABILIDAD BAJA** — patrón visual (rojo translúcido) para 555 municipios (49.6%) con <10 casos en 24 meses, cuyo IPR es inestable.
+2. **Mini-mapa proyección animado 2026–2030** — coroplético con slider temporal (play/pause) que muestra evolución del escenario central por municipio.
+3. **Tooltips enriquecidos** — hovertemplate con % rural/indígena junto al IPR, mejorando contexto en tap táctil.
+
+### Cambios realizados
+
+| # | Función | Implementación | Verificación |
+|---|---------|----------------|--------------|
+| **M3-1** | Overlay CONFIABILIDAD BAJA | `agregar_overlay_confiabilidad_baja(fig, df_vista, geo_mun)` — añade 2º trace `choropleth` con `colorscale` rojo institucional (`#C94C4C`) al 15-25% opacity, `showscale=False`, `hoverinfo="skip"`. Solo municipios con `CONFIABILIDAD == "BAJA"` (555/1119). | Mapa principal muestra overlay rojo sutil en municipios inestables; no interfiere con colorbar IPR; hover no muestra info del overlay. |
+| **M3-2** | Mini-mapa proyección animado | `crear_mapa_proyeccion_animado(df_vista, geo_mun, "CENTRAL")` — usa `proy_municipal` (30 cols: PROY_2026..2030_BAJO/CENTRAL/ALTO + P10/P90). Convierte a formato largo (DIVIPOLA, ANIO, PROYECCION_*). `px.choropleth` con `animation_frame="ANIO"`. Duración 800ms, easing cubic-in-out. Botón ▶/⏸ grande para táctil. | En tab Mapa (nivel Municipal): sección "Proyección animada 2026–2030" con mapa animado funcional. Respeta filtro departamental global. |
+| **M3-3** | Tooltip enriquecido | `custom_data` extendido: añade `RURAL` (idx 6) e `INDIGENA` (idx 7). `hovertemplate`: "IPR: X.XX (Y.Y% rural, Z.Z% indígena)". | Tap en municipio muestra composición rural/indígena junto a IPR y proyección. |
+| **M3-4** | Leyenda contextual en caption | Caption actualizada: "⚠ Overlay rojo = CONFIABILIDAD BAJA (< 10 casos en 24 meses; IPR inestable)." | Usuario entiende significado visual del overlay rojo. |
+| **M3-5** | Caché para performance | `@st.cache_data` en `preparar_mapa_confiabilidad_baja` y `crear_mapa_proyeccion_animado`. | Animación fluida; no recalcula al cambiar tabs. |
+
+### Pruebas ejecutadas
+- ✅ Sintaxis Python: `python -m py_compile app/streamlit_app.py` — sin errores.
+- ✅ Carga app: `streamlit run app/streamlit_app.py --server.headless true` — puerto 8501, sin tracebacks.
+- ✅ Overlay CONFIABILIDAD BAJA: visible en mapa municipal (overlay rojo translúcido en ~50% municipios).
+- ✅ Mini-mapa animado: aparece solo en nivel Municipal; botón ▶ reproduce 2026→2030; respeta filtro Depto.
+- ✅ Tooltips: tap muestra IPR + % rural + % indígena + proyección + casos + rango + confiabilidad.
+- ✅ Filtros M2: persisten y sincronizan con nuevos mapas (df_vista filtrado por session_state).
+- ✅ Navegación tabs: 7 tabs cargan correctamente.
+
+### Archivos modificados
+- `app/streamlit_app.py` — funciones `preparar_mapa_confiabilidad_baja()`, `crear_mapa_proyeccion_animado()`, `agregar_overlay_confiabilidad_baja()`, mapa municipal actualizado, mini-mapa en tab_mapa, tooltip enriquecido.
 
 ---
 
@@ -396,26 +433,32 @@ Falta configuración de tema, servidor, logging, etc.
 8. **Sidebar sincronizado** con tabs: un solo origen de verdad (`session_state`).
 9. **Selectores táctiles** (44px min-height) en sidebar.
 
+**✅ COMPLETADO EN ETAPA M3:**
+10. **Overlay CONFIABILIDAD BAJA** — patrón rojo translúcido (#C94C4C 15-25%) para 555 municipios (49.6%) con IPR inestable.
+11. **Mini-mapa proyección animado 2026–2030** — coroplético con `animation_frame` (5 años), slider ▶/⏸ táctil, 800ms easing, respeta filtro departamental.
+12. **Tooltips enriquecidos** — hovertemplate con % rural/indígena junto a IPR, proyección, casos, rango, confiabilidad.
+13. **Leyenda contextual** — caption explica overlay rojo ("CONFIABILIDAD BAJA = < 10 casos en 24 meses; IPR inestable").
+
 **🔄 SIGUIENTES (requieren autorización):**
-10. **Iniciar Etapa M3** (Mapas y gráficas táctiles avanzadas): patrón CONFIABILIDAD BAJA, mini-mapa proyección animado.
-11. **Iniciar Etapa M4** (Tablas móviles): vista tarjeta/tabla toggle, paginación táctil, métricas en tarjetas.
-12. **Iniciar Etapa M5** (Identidad visual): `.streamlit/theme.toml`, `app/styles.css` separado, glosario tooltips.
-13. **Iniciar Etapa M6** (Arquitectura modular): `app/data_loader.py`, `app/charts.py`, `app/maps.py`, `app/filters.py`, `app/pages/`.
-14. **Fijar dependencias** en `requirements.txt` con versiones exactas (lock).
+14. **Iniciar Etapa M4** (Tablas móviles): vista tarjeta/tabla toggle, paginación táctil, métricas en tarjetas.
+15. **Iniciar Etapa M5** (Identidad visual): `.streamlit/theme.toml`, `app/styles.css` separado, glosario tooltips.
+16. **Iniciar Etapa M6** (Arquitectura modular): `app/data_loader.py`, `app/charts.py`, `app/maps.py`, `app/filters.py`, `app/pages/`.
+17. **Fijar dependencias** en `requirements.txt` con versiones exactas (lock).
 
 ---
 
 ## 12. ÚLTIMO PUNTO ESTABLE DE TRABAJO
 
-- **Commit base:** `292008a` ("Etapa M1: críticos móviles + integridad científica") en rama `feature/mobile-audit-fixes`.
-- **Rama actual:** `feature/mobile-audit-fixes` (trabajo Etapa M2 completado, sin commit aún).
-- **Archivos modificados:** `app/streamlit_app.py` (Etapas M1 + M2).
+- **Commit base:** `104b3fe` ("Etapa M2: Filtros globales persistentes + chips activos + reset") en rama `feature/mobile-audit-fixes`.
+- **Rama actual:** `feature/mobile-audit-fixes` (trabajo Etapa M3 completado, sin commit aún).
+- **Archivos modificados:** `app/streamlit_app.py` (Etapas M1 + M2 + M3).
 - **Archivos nuevos (sin rastrear):** `AGENTES.md`, `PROGRESS_NUTRIPREDICT.md`, `MOBILE_AUDIT_NUTRIPREDICT.md`.
 - **Entorno:** `.venv` funcional (Python 3.14.7, Streamlit 1.67.0, Plotly 7.1.0, Pandas 3.1.1).
 - **App ejecutable:** `streamlit run app/streamlit_app.py` carga sin errores (verificado 2026-11-13).
 - **Estado crítico C1–C3:** **RESUELTOS** (integridad científica restaurada).
 - **Estado crítico móvil A2/B1/D1/D2/F1:** **RESUELTOS** (usabilidad táctil profesional).
 - **Estado M2 filtros:** **RESUELTOS** (globales persistentes, chips, reset, sincronización sidebar↔tabs).
+- **Estado M3 mapas:** **RESUELTOS** (overlay CONFIABILIDAD BAJA, mini-mapa animado 2026-2030, tooltips enriquecidos).
 
 ---
 
