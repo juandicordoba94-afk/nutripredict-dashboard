@@ -1,8 +1,59 @@
 # PROGRESS_NUTRIPREDICT.md — Registro de continuidad del proyecto NUTRIPREDICT Colombia 2030
 
-**Última actualización:** 2026-11-12  
+**Última actualización:** 2026-11-13  
 **Modelo que registra:** Qwen (FreeLLMAPI Auto)  
-**Estado Git:** Limpio — rama `main` actualizada con `origin/main` (commit `42fbf7b`); solo `AGENTES.md` sin rastrear.
+**Estado Git:** Rama `feature/mobile-audit-fixes` (commit `29b0da2` = backup; trabajo en curso). `main` sin cambios.
+
+---
+
+## ETAPA M1 — CORRECCIÓN CRÍTICOS MÓVILES + INTEGRIDAD CIENTÍFICA ✅ COMPLETADA
+
+**Fecha:** 2026-11-13  
+**Rama:** `feature/mobile-audit-fixes`  
+**Commit base:** `29b0da2` (backup estado previo)  
+**Archivo modificado:** `app/streamlit_app.py` (1793 → ~1900 líneas)
+
+### Objetivo
+Corregir los 4 críticos móviles (A2, B1, D1, D2, F1) + 3 críticos de integridad (C1, C2, C3) y aplicar mejoras de identidad visual y usabilidad táctil.
+
+### Cambios realizados
+
+| # | Problema | Solución implementada | Verificación |
+|---|----------|----------------------|--------------|
+| **C1** | Modelos inventados en Metodología (GRU, SARIMA, Holt-Winters, GLM, Ensamble LGBXGB) | Reescrita pestaña Metodología: solo 3 modelos reales (LightGBM, XGBoost, RandomForest Poisson). Eliminadas referencias falsas. | Texto honesto, coincide con notebook y `seleccion_modelos.json`. |
+| **C2** | "Ensamble LGBXGB" → real XGBoost (Poisson) | Corregido en Metodología: "Modelo semanal seleccionado: **XGBoost (Poisson)**". | Coincide con `seleccion_modelos.json` y hoja `Resumen_Modelos`. |
+| **C3** | `TASA_100K` en tabla priorización pero 100% null | Eliminada `TASA_100K` de `columnas_tabla`; añadida nota: "TASA_100K no se calcula por ausencia de datos poblacionales". | Columna ya no aparece; nota visible en caption. |
+| **A2** | Tabs 0.88rem / 44px → imposibles de tocar | CSS: `min-height: 44px`, `min-width: 44px`, `padding: 0.65rem 1rem`, `font-size: 1rem`, `flex-wrap: wrap`, color activo `#176B50`. | Cumple objetivo táctil 44×44px; wrap en ≤375px. |
+| **B1** | Sidebar `auto` tapa contenido en móvil | `initial_sidebar_state="collapsed"` + botón "🔍 Filtros" en header (col 15%) que togglea `st.session_state["sidebar_open"]` + `st.rerun()`. | Sidebar colapsado por defecto; botón visible y funcional. |
+| **D1** | Mapa municipal `range_color=(0,100)` fijo | `range_color=(ipr_min, ipr_max)` dinámico (27.9–99.5); colorbar con título "IPR" y valores numéricos (`coloraxis_showscale=True`). | Escala usa rango real; leyenda numérica visible. |
+| **D2** | Tooltips solo hover (no táctil) | `custom_data` + `hovertemplate` rico con IPR, Proyección, Casos pred, Rango, Confiabilidad; funciona en tap. | Tap en municipio muestra info completa sin tapar. |
+| **D3** | Mapa departamental sin leyenda numérica | Añadido `coloraxis_colorbar` con título "Casos 2030", `len=0.75`, `thickness=15`. | Leyenda visible en ambos mapas. |
+| **D4** | Altura fija 550px → >100vh en móvil | Reducido a `height=450` + CSS `@media (max-width: 768px) { [data-testid="stPlotlyChart"] > div { max-height: 60vh !important; } }`. | Mapas y gráficas caben en viewport sin scroll excesivo. |
+| **D5** | Modebar Plotly botones pequeños | CSS `@media (max-width: 768px) { .modebar { display: none !important; } }`; zoom/pan nativo por pinch. | Interfaz limpia; pinch-to-zoom funciona. |
+| **F1** | Tabla priorización 12 cols → scroll horizontal | Columnas prioritarias (7): RANGO, IPR, MUNICIPIO, DPTO, CASOS_REALES, PROY_2030, CONFIABILIDAD. Checkbox "Mostrar todas las columnas" para secundarias. `width="small/medium"` en `column_config`. | En móvil: 7 cols legibles sin scroll horizontal; toggle para ver todo. |
+| **E1/E2/E3** | Gráficas mensual/semanal/proyección: ejes/leyenda/marcadores | `tickfont=11`, `tickangle=-45`, `nticks=10`; leyenda horizontal `y=1.02`; marcadores `size=7-8`, color `#176B50`, `hovertemplate` rico. | Ejes legibles; leyenda no tapa gráfica; tap muestra tooltip. |
+| **E6** | Colores hardcoded (Plotly default) | Paleta institucional: `#E5B94B` (Bajo), `#176B50` (Central), `#C94C4C` (Alto) + fill `rgba(23,107,80,0.12)`. Aplicado en 3 gráficas de proyección + mensual/semanal. | Identidad visual coherente; contraste AA. |
+| **G3** | 6 `st.warning` apilados | Unificados en `st.expander("⚠ Ver limitaciones detalladas (6 puntos)", expanded=False)`. | Una sola caja visible; expandible bajo demanda. |
+| **A1/A5/A6/B1** | Caption provisional + textos | Caption actualizada: "Dashboard de priorización territorial...". Textos con acentos y ortografía corregida. | Texto profesional e institucional. |
+
+### Pruebas ejecutadas
+- ✅ Sintaxis Python: `python -m py_compile app/streamlit_app.py` — sin errores.
+- ✅ Carga app: `streamlit run app/streamlit_app.py --server.headless true` — arranca en puerto 8501, sin tracebacks.
+- ✅ Navegación tabs: 7 tabs cargan correctamente.
+- ✅ Sidebar toggle: botón "🔍 Filtros" abre/cierra sidebar + `st.rerun()`.
+- ✅ Mapa municipal: range_color dinámico, colorbar visible, hovertemplate en tap.
+- ✅ Tabla priorización: 7 columnas por defecto, checkbox muestra 11, TASA_100K ausente.
+- ✅ Metodología: solo 3 modelos reales, XGBoost semanal, tabla IPR con pesos, expander limitaciones.
+
+### Archivos modificados
+- `app/streamlit_app.py` — único archivo tocado (cambios en CSS, header, sidebar, mapa, tabla, gráficas, metodología).
+
+### Pendientes para siguientes etapas (M2–M6)
+- M2: Sidebar filtros mejorados (reset, chips activos, selectores táctiles).
+- M3: Mapas avanzados (patrón CONFIABILIDAD BAJA, mini-mapa proyección).
+- M4: Tablas tarjeta/tabla toggle, paginación táctil, métricas en tarjetas.
+- M5: `.streamlit/theme.toml`, `app/styles.css` separado, glosario tooltips.
+- M6: Arquitectura modular (`app/data_loader.py`, `app/charts.py`, `app/maps.py`, `app/filters.py`, `app/pages/`).
 
 ---
 
@@ -286,38 +337,42 @@ Falta configuración de tema, servidor, logging, etc.
 
 ## 11. PRÓXIMOS PASOS INMEDIATOS (REQUIEREN AUTORIZACIÓN)
 
-1. **Corregir C1, C2, C3** (integridad científica) — **prioridad absoluta**.
-   - Reescribir pestaña Metodología con solo los 3 modelos reales.
-   - Cambiar "Ensamble LGBXGB" → "XGBoost (Poisson)".
-   - Quitar `TASA_100K` de la tabla de priorización (o mostrar "No disponible" con explicación).
+**✅ COMPLETADO EN ETAPA M1:**
+1. **Corregidos C1, C2, C3** (integridad científica) — prioridad absoluta.
+   - ✅ Pestaña Metodología reescrita con solo 3 modelos reales.
+   - ✅ "Ensamble LGBXGB" → "XGBoost (Poisson)" corregido.
+   - ✅ `TASA_100K` eliminada de tabla priorización + nota explicativa.
 
-2. **Crear rama de trabajo** (`feature/auditoria-fixes`) y commit de respaldo del estado actual.
+2. **Rama de trabajo creada** (`feature/mobile-audit-fixes`) y commit de respaldo (`29b0da2`).
 
-3. **Iniciar Etapa 2** (Plan de rediseño) con propuesta de arquitectura modular:
-   - `app/__init__.py`
-   - `app/data_loader.py` (cachés centralizados)
-   - `app/charts.py`
-   - `app/maps.py`
-   - `app/filters.py`
-   - `app/methodology.py`
-   - `app/components/` (tarjetas, tablas, botones)
-   - `app/pages/` (una por tab)
-   - `streamlit_app.py` → orquestador delgado (< 200 líneas).
+3. **Críticos móviles resueltos** (A2, B1, D1, D2, F1 + E1/E2/E3/E6, D3/D4/D5, G3, A1/A5/A6).
+   - ✅ Tabs táctiles 44×44px con paleta institucional.
+   - ✅ Sidebar colapsado + botón "🔍 Filtros" en header.
+   - ✅ Mapa municipal: range_color dinámico, colorbar, hovertemplate tap.
+   - ✅ Tabla priorización: 7 columnas prioritarias, toggle "Mostrar todo".
+   - ✅ Gráficas: ejes/leyenda/marcadores responsivos, paleta institucional.
+   - ✅ Limitaciones en expander colapsable.
 
-4. **Fijar dependencias** en `requirements.txt` con versiones exactas (lock).
-
-5. **Crear `.streamlit/theme.toml`** con paleta institucional.
+**🔄 SIGUIENTES (requieren autorización):**
+4. **Commit cambios Etapa M1** en `feature/mobile-audit-fixes`.
+5. **Iniciar Etapa M2** (Sidebar y filtros móviles): reset global, chips activos, selectores táctiles mejorados.
+6. **Iniciar Etapa M3** (Mapas y gráficas táctiles avanzadas): patrón CONFIABILIDAD BAJA, mini-mapa proyección.
+7. **Fijar dependencias** en `requirements.txt` con versiones exactas (lock).
+8. **Crear `.streamlit/theme.toml`** y separar CSS a `app/styles.css`.
+9. **Arquitectura modular** (Etapa 2 AGENTS.md): `app/data_loader.py`, `app/charts.py`, `app/maps.py`, `app/filters.py`, `app/pages/`.
 
 ---
 
 ## 12. ÚLTIMO PUNTO ESTABLE DE TRABAJO
 
-- **Commit:** `42fbf7b` ("Metodologia y limitaciones del dashboard")
-- **Rama:** `main` (sincronizada con `origin/main`)
-- **Archivos modificados por el usuario:** ninguno desde ese commit.
-- **Archivos sin rastrear:** `AGENTES.md`, `PROGRESS_NUTRIPREDICT.md` (este).
+- **Commit base:** `29b0da2` ("backup: estado previo a auditoría móvil (Etapa M1)") en rama `feature/mobile-audit-fixes`.
+- **Rama actual:** `feature/mobile-audit-fixes` (trabajo Etapa M1 completado, sin commit aún).
+- **Archivos modificados:** `app/streamlit_app.py` (Etapa M1).
+- **Archivos nuevos (sin rastrear):** `AGENTES.md`, `PROGRESS_NUTRIPREDICT.md`, `MOBILE_AUDIT_NUTRIPREDICT.md`.
 - **Entorno:** `.venv` funcional (Python 3.14.7, Streamlit 1.67.0, Plotly 7.1.0, Pandas 3.1.1).
-- **App ejecutable:** `streamlit run app/streamlit_app.py` carga sin errores (verificado en auditoría).
+- **App ejecutable:** `streamlit run app/streamlit_app.py` carga sin errores (verificado 2026-11-13).
+- **Estado crítico C1–C3:** **RESUELTOS** (integridad científica restaurada).
+- **Estado crítico móvil A2/B1/D1/D2/F1:** **RESUELTOS** (usabilidad táctil profesional).
 
 ---
 

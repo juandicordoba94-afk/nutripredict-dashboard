@@ -11,7 +11,7 @@ DATA = ROOT / "data"
 st.set_page_config(
     page_title="NUTRIPREDICT Colombia 2030",
     layout="wide",
-    initial_sidebar_state="auto",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown(
@@ -34,72 +34,214 @@ st.markdown(
         max-width: 100%;
     }
 
+    /* Header con botón de filtros */
+    .nutripredict-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+    .nutripredict-title {
+        flex: 1;
+        min-width: 0;
+    }
+    .nutripredict-filter-btn {
+        flex-shrink: 0;
+    }
+
     @media (min-width: 769px) and (max-width: 1100px) {
         [data-testid="stMainBlockContainer"] {
             padding-inline: 1.5rem;
         }
-
-        h1 {
-            font-size: 2.1rem;
-        }
+        h1 { font-size: 2.1rem; }
     }
 
     @media (max-width: 768px) {
         [data-testid="stMainBlockContainer"] {
-            padding: 1rem 0.85rem 2rem;
+            padding: 0.75rem 0.75rem 1.5rem;
         }
+        h1 { font-size: 1.65rem; line-height: 1.2; }
+        h2 { font-size: 1.3rem; }
+        h3 { font-size: 1.1rem; }
 
-        h1 {
-            font-size: 1.65rem;
-            line-height: 1.2;
-        }
-
-        h2 {
-            font-size: 1.3rem;
-        }
-
-        h3 {
-            font-size: 1.1rem;
-        }
-
+        /* Tabs táctiles: mínimo 44x44px, fuente legible, wrap en móviles muy pequeños */
         .stTabs [data-baseweb="tab-list"] {
-            gap: 0.2rem;
-            flex-wrap: nowrap;
+            gap: 0.35rem;
+            flex-wrap: wrap;
             justify-content: flex-start;
             overflow-x: auto;
             scrollbar-width: thin;
+            padding-bottom: 0.25rem;
         }
-
         .stTabs [data-baseweb="tab"] {
             flex: 0 0 auto;
-            min-height: 2.75rem;
-            padding: 0.55rem 0.7rem;
+            min-height: 44px;
+            min-width: 44px;
+            padding: 0.65rem 1rem;
             white-space: nowrap;
-            font-size: 0.88rem;
+            font-size: 1rem;
+            border-radius: 8px;
+            background: #f0f3f1;
+            color: #164c3b;
+            border: 1px solid #e0e6e3;
+            transition: background 0.15s, color 0.15s;
+        }
+        .stTabs [data-baseweb="tab"]:hover {
+            background: #e0e6e3;
+        }
+        .stTabs [data-baseweb="tab"][aria-selected="true"] {
+            background: #176b50;
+            color: #ffffff;
+            border-color: #176b50;
+        }
+        .stTabs [data-baseweb="tab"][aria-selected="true"]:focus-visible {
+            outline: 2px solid #e5b94b;
+            outline-offset: 2px;
+        }
+
+        /* Reducir padding en móviles muy estrechos (≤ 375px) */
+        @media (max-width: 375px) {
+            [data-testid="stMainBlockContainer"] {
+                padding: 0.5rem 0.5rem 1rem;
+            }
+            .stTabs [data-baseweb="tab"] {
+                padding: 0.55rem 0.75rem;
+                font-size: 0.95rem;
+            }
         }
 
         [data-testid="stPlotlyChart"] {
             width: 100%;
             overflow: hidden;
         }
-
         [data-testid="stDataFrame"] {
             width: 100%;
             overflow-x: auto;
         }
-
         [data-testid="stWidgetLabel"] {
             font-size: 0.95rem;
         }
+
+        /* Botones y selectores más grandes en táctil */
+        .stButton > button,
+        .stDownloadButton > button {
+            min-height: 44px;
+            font-size: 1rem;
+        }
+        .stSelectbox [data-baseweb="select"] > div {
+            min-height: 44px;
+            font-size: 1rem;
+        }
+        .stRadio [role="radiogroup"] {
+            gap: 0.5rem;
+        }
+        .stRadio label {
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+        }
+        .stSlider [data-baseweb="slider"] {
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        /* Thumb del slider más grande */
+        .stSlider [role="slider"] {
+            width: 24px !important;
+            height: 24px !important;
+        }
+
+        /* Paginación de tablas táctil */
+        .stDataFrame button[aria-label*="page"],
+        .stDataFrame button[aria-label*="Page"] {
+            min-height: 44px;
+            min-width: 44px;
+            font-size: 1rem;
+        }
     }
+
+    /* Mejoras de legibilidad de textos */
+    .stMarkdown p, .stMarkdown li {
+        line-height: 1.6;
+        max-width: 100%;
+    }
+    .stCaption {
+        color: #64746b;
+        font-size: 0.9rem;
+    }
+
+    /* Ocultar modebar de Plotly en móvil (zoom/pan nativo por pinch) */
+    @media (max-width: 768px) {
+        .modebar { display: none !important; }
+    }
+
+    /* Altura responsiva para gráficas y mapas */
+    @media (max-width: 768px) {
+        [data-testid="stPlotlyChart"] > div {
+            max-height: 60vh !important;
+        }
+        /* Mapas un poco más altos */
+        [data-testid="stPlotlyChart"]:has(.choropleth) > div,
+        [data-testid="stPlotlyChart"]:has(.choroplethmapbox) > div {
+            max-height: 65vh !important;
+        }
+    }
+    @media (max-width: 480px) {
+        [data-testid="stPlotlyChart"] > div {
+            max-height: 50vh !important;
+        }
+    }
+
+    /* Colorbar de mapas más visible */
+    .colorbar { font-size: 12px !important; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-st.title("NUTRIPREDICT Colombia 2030")
-st.caption(
-    "Primera prueba: archivos, codigos territoriales y mapas."
+# Header con título y botón de filtros
+st.markdown(
+    """
+    <div class="nutripredict-header">
+        <div class="nutripredict-title"></div>
+        <div class="nutripredict-filter-btn"></div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+col_title, col_filter = st.columns([0.85, 0.15])
+with col_title:
+    st.title("NUTRIPREDICT Colombia 2030")
+    st.caption(
+        "Dashboard de priorización territorial para desnutrición aguda infantil en Colombia. "
+        "Basado en notificaciones del evento 113 de SIVIGILA (2016–2025)."
+    )
+with col_filter:
+    if st.button("🔍 Filtros", use_container_width=True, key="toggle_sidebar"):
+        st.session_state["sidebar_open"] = not st.session_state.get("sidebar_open", False)
+        st.rerun()
+
+# JavaScript para controlar sidebar colapsado/expandido via botón
+st.markdown(
+    """
+    <script>
+    (function() {
+        const sidebar = document.querySelector('[data-testid="stSidebar"]');
+        const toggleBtn = window.parent.document.querySelector('[data-testid="stButton"] button[key="toggle_sidebar"]');
+        if (!sidebar || !toggleBtn) return;
+        // Escuchar cambios en session_state para abrir/cerrar
+        const observer = new MutationObserver(() => {
+            const isOpen = sessionStorage.getItem('sidebar_open') === 'true';
+            sidebar.style.transform = isOpen ? 'translateX(0)' : 'translateX(-100%)';
+            sidebar.style.transition = 'transform 0.3s ease';
+        });
+        observer.observe(document.body, { attributes: true, subtree: true });
+    })();
+    </script>
+    """,
+    unsafe_allow_html=True,
 )
 
 
@@ -570,44 +712,103 @@ tab_mapa, tab_priorizacion, tab_mensual, tab_semanal, tab_proyeccion, tab_modelo
      "Metodología y limitaciones"]
 )
 
-st.sidebar.header("Filtros")
+# Estado del sidebar (colapsado por defecto, se abre con botón en header)
+if "sidebar_open" not in st.session_state:
+    st.session_state["sidebar_open"] = False
 
-nivel = st.sidebar.radio(
-    "Nivel territorial",
-    ["Departamentos", "Municipios"],
-    horizontal=True,
-)
+# Sidebar condicional
+if st.session_state["sidebar_open"]:
+    st.sidebar.header("Filtros")
 
-departamento = st.sidebar.selectbox(
-    "Departamento",
-    ["Todos"] + sorted(df["DPTO"].dropna().unique().tolist()),
-)
-
-df_vista = df.copy()
-
-if departamento != "Todos":
-    df_vista = df_vista[df_vista["DPTO"] == departamento]
-
-if nivel == "Departamentos":
-    mapa = (
-        df_vista
-        .groupby(["CODDPTO", "DPTO"], as_index=False)["PROY_2030"]
-        .sum(min_count=1)
+    nivel = st.sidebar.radio(
+        "Nivel territorial",
+        ["Departamentos", "Municipios"],
+        horizontal=True,
     )
 
-    fig = px.choropleth(
-        mapa,
-        geojson=geo_dep,
-        locations="CODDPTO",
-        featureidkey="properties.divipola_dep",
-        color="PROY_2030",
-        hover_name="DPTO",
-        hover_data=["PROY_2030"],
-        color_continuous_scale="YlOrRd",
-        title="Escenario central 2030: total por departamento",
+    departamento = st.sidebar.selectbox(
+        "Departamento",
+        ["Todos"] + sorted(df["DPTO"].dropna().unique().tolist()),
+    )
+
+    df_vista = df.copy()
+
+    if departamento != "Todos":
+        df_vista = df_vista[df_vista["DPTO"] == departamento]
+
+    if nivel == "Departamentos":
+        mapa = (
+            df_vista
+            .groupby(["CODDPTO", "DPTO"], as_index=False)["PROY_2030"]
+            .sum(min_count=1)
+        )
+
+        fig = px.choropleth(
+            mapa,
+            geojson=geo_dep,
+            locations="CODDPTO",
+            featureidkey="properties.divipola_dep",
+            color="PROY_2030",
+            hover_name="DPTO",
+            hover_data=["PROY_2030"],
+            color_continuous_scale="YlOrRd",
+            title="Escenario central 2030: total por departamento",
+        )
+
+    else:
+        # D1: range_color dinámico según datos reales (IPR 27.9–99.5)
+        ipr_min = float(df_vista["IPR"].min())
+        ipr_max = float(df_vista["IPR"].max())
+        fig = px.choropleth(
+            df_vista,
+            geojson=geo_mun,
+            locations="DIVIPOLA",
+            featureidkey="properties.divipola_mun",
+            color="IPR",
+            hover_name="MUNICIPIO",
+            # D2: hovertemplate rico para tocar en móvil (no solo hover)
+            custom_data=["DPTO", "PROY_2030", "CASOS_PRED", "RANGO", "CONFIABILIDAD", "IPR"],
+            hovertemplate=(
+                "<b>%{hovertext}</b><br>" +
+                "Departamento: %{customdata[0]}<br>" +
+                "IPR: %{customdata[5]:.2f}<br>" +
+                "Proyección 2030: %{customdata[1]:.0f}<br>" +
+                "Casos predichos: %{customdata[2]:.0f}<br>" +
+                "Rango: %{customdata[3]}<br>" +
+                "Confiabilidad: %{customdata[4]}<extra></extra>"
+            ),
+            color_continuous_scale="YlOrRd",
+            range_color=(ipr_min, ipr_max),
+            title="Índice de Priorización Municipal (IPR)",
+        )
+
+    fig.update_geos(
+        fitbounds="locations",
+        visible=False,
+        projection_type="mercator",
+    )
+
+    fig.update_layout(
+        height=450,
+        margin=dict(l=0, r=0, t=50, b=0),
+        # Colorbar con valores numéricos (D3)
+        coloraxis_showscale=True,
+        coloraxis_colorbar=dict(
+            title="IPR" if nivel == "Municipios" else "Casos 2030",
+            len=0.75,
+            thickness=15,
+            tickfont=dict(size=11),
+        ),
     )
 
 else:
+    # Sidebar cerrado: usar vista por defecto (Municipios, Todos)
+    df_vista = df.copy()
+    nivel = "Municipios"
+    departamento = "Todos"
+
+    ipr_min = float(df_vista["IPR"].min())
+    ipr_max = float(df_vista["IPR"].max())
     fig = px.choropleth(
         df_vista,
         geojson=geo_mun,
@@ -615,22 +816,38 @@ else:
         featureidkey="properties.divipola_mun",
         color="IPR",
         hover_name="MUNICIPIO",
-        hover_data=["DPTO", "PROY_2030", "CASOS_PRED", "RANGO", "CONFIABILIDAD"],
+        custom_data=["DPTO", "PROY_2030", "CASOS_PRED", "RANGO", "CONFIABILIDAD", "IPR"],
+        hovertemplate=(
+            "<b>%{hovertext}</b><br>" +
+            "Departamento: %{customdata[0]}<br>" +
+            "IPR: %{customdata[5]:.2f}<br>" +
+            "Proyección 2030: %{customdata[1]:.0f}<br>" +
+            "Casos predichos: %{customdata[2]:.0f}<br>" +
+            "Rango: %{customdata[3]}<br>" +
+            "Confiabilidad: %{customdata[4]}<extra></extra>"
+        ),
         color_continuous_scale="YlOrRd",
-        range_color=(0, 100),
-        title="Indice de priorizacion municipal",
+        range_color=(ipr_min, ipr_max),
+        title="Índice de Priorización Municipal (IPR)",
     )
 
-fig.update_geos(
-    fitbounds="locations",
-    visible=False,
-    projection_type="mercator",
-)
+    fig.update_geos(
+        fitbounds="locations",
+        visible=False,
+        projection_type="mercator",
+    )
 
-fig.update_layout(
-    height=550,
-    margin=dict(l=0, r=0, t=50, b=0),
-)
+    fig.update_layout(
+        height=450,
+        margin=dict(l=0, r=0, t=50, b=0),
+        coloraxis_showscale=True,
+        coloraxis_colorbar=dict(
+            title="IPR",
+            len=0.75,
+            thickness=15,
+            tickfont=dict(size=11),
+        ),
+    )
 
 with tab_mapa:
     st.plotly_chart(fig, use_container_width=True)
@@ -642,35 +859,37 @@ with tab_mapa:
     )
 
 with tab_priorizacion:
-    st.subheader("Priorizacion municipal")
+    st.subheader("Priorización municipal")
 
     st.caption(
-        "La tabla muestra los municipios con mayor indice de Priorizacion Relativa (IPR). "
-        "El IPR es una prioridad relativa entre municipios, no un diagnostico individual."
+        "La tabla muestra los municipios con mayor índice de Priorización Relativa (IPR). "
+        "El IPR es una prioridad relativa entre municipios, no un diagnóstico individual. "
+        "TASA_100K no se calcula por ausencia de datos poblacionales."
     )
 
-    columnas_tabla = [
-        "DIVIPOLA",
-        "DPTO",
-        "MUNICIPIO",
-        "CASOS_REALES",
-        "CASOS_PRED",
-        "PROY_2030",
-        "RURAL",
-        "INDIGENA",
-        "IPR",
+    # F1: Columnas prioritarias para móvil (primeras 7), resto opcionales
+    columnas_prioritarias = [
         "RANGO",
+        "IPR",
+        "MUNICIPIO",
+        "DPTO",
+        "CASOS_REALES",
+        "PROY_2030",
         "CONFIABILIDAD",
     ]
-
-    columnas_disponibles = [
-        columna
-        for columna in columnas_tabla
-        if columna in df.columns
+    columnas_secundarias = [
+        "DIVIPOLA",
+        "CASOS_PRED",
+        "RURAL",
+        "INDIGENA",
     ]
+    # TASA_100K excluida intencionalmente (100% null)
 
-    if "IPR" not in columnas_disponibles:
-        st.error("La columna IPR no esta disponible en el JSON.")
+    columnas_disponibles_prio = [c for c in columnas_prioritarias if c in df.columns]
+    columnas_disponibles_secu = [c for c in columnas_secundarias if c in df.columns]
+
+    if "IPR" not in columnas_disponibles_prio:
+        st.error("La columna IPR no está disponible en el JSON.")
         st.stop()
 
     df_prioridad = df_vista.copy()
@@ -712,41 +931,36 @@ with tab_priorizacion:
         df_prioridad = df_prioridad.drop(columns="ORDEN_RANGO")
 
     top_n = st.slider(
-        "Numero de municipios a mostrar",
+        "Número de municipios a mostrar",
         min_value=10,
         max_value=50,
         value=15,
         step=5,
     )
 
-    tabla_prioridad = df_prioridad.head(top_n)[columnas_disponibles]
+    # Toggle para mostrar columnas secundarias (útil en desktop)
+    mostrar_todo = st.checkbox("Mostrar todas las columnas", value=False, key="show_all_cols")
+
+    if mostrar_todo:
+        columnas_mostrar = columnas_disponibles_prio + columnas_disponibles_secu
+    else:
+        columnas_mostrar = columnas_disponibles_prio
+
+    tabla_prioridad = df_prioridad.head(top_n)[columnas_mostrar]
 
     columnas_formato = {
-    "CASOS_REALES": st.column_config.NumberColumn(
-        "Casos reales",
-        format="%.0f",
-    ),
-    "CASOS_PRED": st.column_config.NumberColumn(
-        "Casos predichos",
-        format="%.0f",
-    ),
-    "PROY_2030": st.column_config.NumberColumn(
-        "Proyeccion 2030",
-        format="%.0f",
-    ),
-    "RURAL": st.column_config.NumberColumn(
-        "Casos rurales (%)",
-        format="%.1f%%",
-    ),
-    "INDIGENA": st.column_config.NumberColumn(
-        "Casos indigenas (%)",
-        format="%.1f%%",
-    ),
-    "IPR": st.column_config.NumberColumn(
-        "IPR",
-        format="%.2f",
-    ),
-    }   
+        "CASOS_REALES": st.column_config.NumberColumn("Casos reales", format="%.0f", width="small"),
+        "CASOS_PRED": st.column_config.NumberColumn("Casos predichos", format="%.0f", width="small"),
+        "PROY_2030": st.column_config.NumberColumn("Proyección 2030", format="%.0f", width="small"),
+        "RURAL": st.column_config.NumberColumn("Rural (%)", format="%.1f%%", width="small"),
+        "INDIGENA": st.column_config.NumberColumn("Indígena (%)", format="%.1f%%", width="small"),
+        "IPR": st.column_config.NumberColumn("IPR", format="%.2f", width="small"),
+        "RANGO": st.column_config.TextColumn("Rango", width="small"),
+        "CONFIABILIDAD": st.column_config.TextColumn("Confiab.", width="small"),
+        "MUNICIPIO": st.column_config.TextColumn("Municipio", width="medium"),
+        "DPTO": st.column_config.TextColumn("Depto", width="small"),
+        "DIVIPOLA": st.column_config.TextColumn("DIVIPOLA", width="small"),
+    }
 
     st.dataframe(
         tabla_prioridad,
@@ -865,16 +1079,35 @@ with tab_mensual:
                 },
             )
 
+            # E1, E3: Marcadores más grandes, hovertemplate para tocar
             fig_mensual.update_traces(
                 mode="lines+markers",
-                line=dict(width=2),
-                marker=dict(size=5),
+                line=dict(width=2, color="#176B50"),
+                marker=dict(size=8, color="#176B50"),
+                hovertemplate="Mes: %{x|%b %Y}<br>Casos: %{y:.0f}<extra></extra>",
             )
 
+            # E1, E2: Ejes y leyenda responsivos
             fig_mensual.update_layout(
                 height=450,
                 margin=dict(l=0, r=0, t=50, b=0),
                 hovermode="x unified",
+                xaxis=dict(
+                    tickfont=dict(size=11),
+                    tickangle=-45,
+                    nticks=10,
+                ),
+                yaxis=dict(
+                    tickfont=dict(size=11),
+                ),
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1,
+                    font=dict(size=11),
+                ),
             )
 
             st.plotly_chart(
@@ -999,15 +1232,34 @@ with tab_semanal:
                         "CASOS": "Casos notificados",
                     },
                 )
+                # E1, E3: Marcadores más grandes, hovertemplate para tocar
                 fig_semanal.update_traces(
                     mode="lines+markers",
-                    line=dict(width=2),
-                    marker=dict(size=4),
+                    line=dict(width=2, color="#176B50"),
+                    marker=dict(size=7, color="#176B50"),
+                    hovertemplate="Semana: %{x|%d/%m/%Y}<br>Casos: %{y:.0f}<extra></extra>",
                 )
+                # E1, E2: Ejes y leyenda responsivos
                 fig_semanal.update_layout(
                     height=450,
                     margin=dict(l=0, r=0, t=50, b=0),
                     hovermode="x unified",
+                    xaxis=dict(
+                        tickfont=dict(size=11),
+                        tickangle=-45,
+                        nticks=10,
+                    ),
+                    yaxis=dict(
+                        tickfont=dict(size=11),
+                    ),
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1,
+                        font=dict(size=11),
+                    ),
                 )
                 st.plotly_chart(fig_semanal, use_container_width=True)
 
@@ -1083,10 +1335,11 @@ with tab_proyeccion:
                 "PROYECCION": "Casos notificados esperados",
                 "ESCENARIO": "Escenario",
             },
+            # E6: Paleta institucional
             color_discrete_map={
-                "BAJO": "#2ca02c",
-                "CENTRAL": "#1f77b4",
-                "ALTO": "#d62728",
+                "BAJO": "#E5B94B",      # Amarillo de alerta
+                "CENTRAL": "#176B50",   # Verde institucional
+                "ALTO": "#C94C4C",      # Rojo de alerta
             },
         )
 
@@ -1100,7 +1353,7 @@ with tab_proyeccion:
                 y=central["IC80ALTO"],
                 mode="lines",
                 name="Intervalo 80% superior",
-                line=dict(width=1, dash="dash", color="#1f77b4"),
+                line=dict(width=1, dash="dash", color="#176B50"),
                 showlegend=True,
             )
 
@@ -1109,9 +1362,9 @@ with tab_proyeccion:
                 y=central["IC80BAJO"],
                 mode="lines",
                 name="Intervalo 80% inferior",
-                line=dict(width=1, dash="dash", color="#1f77b4"),
+                line=dict(width=1, dash="dash", color="#176B50"),
                 fill="tonexty",
-                fillcolor="rgba(31,119,180,0.12)",
+                fillcolor="rgba(23,107,80,0.12)",
                 showlegend=True,
             )
 
@@ -1189,10 +1442,11 @@ with tab_proyeccion:
                     "PROYECCION": "Casos notificados esperados",
                     "ESCENARIO": "Escenario",
                 },
+                # E6: Paleta institucional
                 color_discrete_map={
-                    "BAJO": "#2ca02c",
-                    "CENTRAL": "#1f77b4",
-                    "ALTO": "#d62728",
+                    "BAJO": "#E5B94B",
+                    "CENTRAL": "#176B50",
+                    "ALTO": "#C94C4C",
                 },
             )
 
@@ -1206,7 +1460,7 @@ with tab_proyeccion:
                     y=central["IC80ALTO"],
                     mode="lines",
                     name="Intervalo 80% superior",
-                    line=dict(width=1, dash="dash", color="#1f77b4"),
+                    line=dict(width=1, dash="dash", color="#176B50"),
                     showlegend=True,
                 )
 
@@ -1215,9 +1469,9 @@ with tab_proyeccion:
                     y=central["IC80BAJO"],
                     mode="lines",
                     name="Intervalo 80% inferior",
-                    line=dict(width=1, dash="dash", color="#1f77b4"),
+                    line=dict(width=1, dash="dash", color="#176B50"),
                     fill="tonexty",
-                    fillcolor="rgba(31,119,180,0.12)",
+                    fillcolor="rgba(23,107,80,0.12)",
                     showlegend=True,
                 )
 
@@ -1225,6 +1479,22 @@ with tab_proyeccion:
                 height=450,
                 margin=dict(l=0, r=0, t=50, b=0),
                 hovermode="x unified",
+                xaxis=dict(
+                    tickfont=dict(size=11),
+                    tickangle=0,
+                    dtick=1,
+                ),
+                yaxis=dict(
+                    tickfont=dict(size=11),
+                ),
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1,
+                    font=dict(size=11),
+                ),
             )
 
             st.plotly_chart(
@@ -1320,10 +1590,11 @@ with tab_proyeccion:
                     "PROYECCION": "Casos notificados esperados",
                     "ESCENARIO": "Escenario",
                 },
+                # E6: Paleta institucional
                 color_discrete_map={
-                    "BAJO": "#2ca02c",
-                    "CENTRAL": "#1f77b4",
-                    "ALTO": "#d62728",
+                    "BAJO": "#E5B94B",
+                    "CENTRAL": "#176B50",
+                    "ALTO": "#C94C4C",
                 },
             )
 
@@ -1331,6 +1602,22 @@ with tab_proyeccion:
                 height=450,
                 margin=dict(l=0, r=0, t=50, b=0),
                 hovermode="x unified",
+                xaxis=dict(
+                    tickfont=dict(size=11),
+                    tickangle=0,
+                    dtick=1,
+                ),
+                yaxis=dict(
+                    tickfont=dict(size=11),
+                ),
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1,
+                    font=dict(size=11),
+                ),
             )
 
             st.plotly_chart(
@@ -1665,20 +1952,19 @@ with tab_metodologia:
 
     st.write(
         """
-        El análisis utiliza varios enfoques complementarios:
+        El análisis compara **tres familias de modelos** con enfoque de regresión de Poisson
+        (adecuada para datos de conteo):
 
-        - Modelos de referencia, como último valor observado, promedios móviles
-          y pronóstico estacional ingenuo.
-        - Modelos de aprendizaje automático, incluyendo Random Forest, XGBoost
-          y LightGBM.
-        - Modelos de conteos, incluyendo GLM Poisson y binomial negativa.
-        - Modelos de series de tiempo, incluyendo suavizamiento exponencial,
-          Holt-Winters y SARIMA/SARIMAX.
-        - Una red neuronal GRU global con pérdida de Poisson.
+        - **LightGBM (Poisson)** — *boosting* de gradiente con pérdida de Poisson.
+        - **XGBoost (Poisson)** — *boosting* de gradiente extremo con pérdida de Poisson.
+        - **Random Forest** — ensamble de árboles de decisión.
 
-        Los modelos usan información disponible hasta el periodo anterior. Es decir,
-        para predecir un mes o una semana, no utilizan el valor del periodo que se
-        quiere predecir.
+        No se utilizan redes neuronales (GRU), modelos ARIMA/SARIMA, suavizamiento exponencial,
+        Holt-Winters, ni modelos lineales generalizados (GLM) Poisson/binomial negativa.
+        Estos no forman parte del pipeline de modelamiento actual.
+
+        Los modelos usan información disponible hasta el periodo anterior (predicción a un paso).
+        Para predecir un mes o una semana, no utilizan el valor del periodo que se quiere predecir.
         """
     )
 
@@ -1686,12 +1972,14 @@ with tab_metodologia:
 
     st.write(
         """
-        La selección de modelos e hiperparámetros se realizó únicamente con la
-        validación de 2023. El período de prueba, 2024–2025, se utilizó para
-        evaluar el desempeño final, pero no para elegir modelos.
+        La selección de modelos e hiperparámetros se realizó **únicamente con la
+        validación de 2023** (entrenamiento 2017–2022). El período de prueba,
+        2024–2025, se utilizó para evaluar el desempeño final, pero **no para elegir modelos**.
 
-        El modelo final mensual es **LightGBM Poisson** y el modelo final semanal
-        es **Ensamble LGBXGB**.
+        - Modelo mensual seleccionado: **LightGBM (Poisson)** (menor RMSE en validación, nivel municipal).
+        - Modelo semanal seleccionado: **XGBoost (Poisson)** (menor RMSE en validación, nivel municipal).
+
+        Los mismos hiperparámetros se re-ajustan con datos hasta 2023 para la evaluación en prueba.
         """
     )
 
@@ -1699,23 +1987,43 @@ with tab_metodologia:
 
     st.write(
         """
-        Las proyecciones de largo plazo son escenarios de planeación, no predicciones
-        deterministas. Se construyen a partir de un nivel base, una tendencia
-        departamental amortiguada y tres escenarios de crecimiento: bajo, central y alto.
+        Las proyecciones de largo plazo son **escenarios de planeación**, no predicciones
+        deterministas. Se construyen a partir de:
 
-        El escenario central limita el crecimiento anual para evitar extrapolaciones
-        extremas. Los escenarios bajo y alto representan variaciones de planeación,
-        no límites estadísticos exactos.
+        1. **Nivel base:** media de los últimos 2 años completos (2023–2024).
+        2. **Tendencia departamental:** pendiente log-lineal de 4 años (2020–2023), encogida
+           hacia la tendencia nacional (parámetro K=300 casos).
+        3. **Tope de crecimiento:** ±10% anual para el escenario central.
+        4. **Amortiguación:** el crecimiento se reduce 15% cada año (factor 0.85) para evitar
+           extrapolaciones extremas a 5 años.
+        5. **Escenarios:** Central ± 5 puntos porcentuales de crecimiento anual
+           (supuesto de planeación, no estimado estadísticamente).
+
+        La incertidumbre se representa con intervalos IC80 log-normal (σ departamental=0.291,
+        σ nacional=0.155), retro-validados solo hasta horizonte 6 meses.
         """
     )
 
-    st.markdown("### Índice de priorización relativa")
+    st.markdown("### Índice de priorización relativa (IPR)")
 
     st.write(
         """
-        El IPR es un índice relativo entre municipios. Sirve para ordenar territorios
-        según volumen esperado, composición rural e indígena de los casos notificados
-        y, cuando está disponible, tasa poblacional.
+        El IPR es un **índice relativo entre municipios** (0–100). Sirve para ordenar territorios
+        según tres componentes ponderados (**supuestos de planeación**, no estimados):
+
+        | Componente | Peso | Descripción |
+        |------------|------|-------------|
+        | Volumen esperado | 50% | Percentil de casos esperados a 12 meses (pronóstico recursivo LightGBM mensual, exploratorio). |
+        | Ruralidad | 25% | Percentil de % casos rurales notificados (con encogimiento K=20 hacia media nacional). |
+| Indigenidad | 25% | Percentil de % casos indígenas notificados (con encogimiento K=20 hacia media nacional). |
+
+        **Fórmula:** `IPR = 0.50 × Volumen + 0.25 × Ruralidad + 0.25 × Indigenidad`
+
+        La tasa por 100.000 habitantes (**TASA_100K**) **no se calcula** por ausencia de datos
+        poblacionales municipales actualizados. Si se aportara población, los pesos cambiarían a
+        Volumen=20%, Tasa=40%, Ruralidad=20%, Indigenidad=20% (supuesto experto).
+
+        El IPR se clasifica en cuartiles: **CRÍTICO** (Q4), **ALTO** (Q3), **MEDIO** (Q2), **BAJO** (Q1).
 
         El IPR **no es un diagnóstico**, no mide riesgo individual y no debe usarse
         para asignar recursos sin revisar el contexto territorial.
@@ -1724,55 +2032,52 @@ with tab_metodologia:
 
     st.markdown("### Limitaciones principales")
 
-    st.warning(
-        """
-        **1. Notificaciones, no incidencia real.**  
-        Las cifras corresponden a casos notificados al sistema de vigilancia. No
-        capturan necesariamente todos los casos de desnutrición aguda infantil.
-        """
-    )
-
-    st.warning(
-        """
-        **2. Cambios en la capacidad de notificación.**  
-        Variaciones en la detección, reporte, acceso a servicios de salud o
-        actualización de registros pueden afectar las tendencias observadas.
-        """
-    )
-
-    st.warning(
-        """
-        **3. Municipios con baja confiabilidad.**  
-        Los municipios con pocos casos notificados en los últimos dos años tienen
-        proyecciones e índices más inestables. Deben interpretarse con precaución.
-        """
-    )
-
-    st.warning(
-        """
-        **4. Ruralidad e indigenidad.**  
-        Las variables de ruralidad e indigenidad describen la composición de los
-        casos notificados, no la composición poblacional total del municipio.
-        """
-    )
-
-    st.warning(
-        """
-        **5. Proyecciones de largo plazo.**  
-        Las proyecciones 2026–2030 dependen de supuestos explícitos y no incorporan
-        cambios futuros en políticas públicas, financiación, cobertura de salud,
-        seguridad alimentaria, migración, conflictos o capacidad de notificación.
-        """
-    )
-
-    st.warning(
-        """
-        **6. Cobertura cartográfica.**  
-        Algunos territorios pueden aparecer en los resultados pero no tener geometría
-        disponible en la cartografía utilizada. Esto no elimina sus resultados, pero
-        impide mostrarlos en el mapa municipal.
-        """
-    )
+    with st.expander("⚠ Ver limitaciones detalladas (6 puntos)", expanded=False):
+        st.warning(
+            """
+            **1. Notificaciones, no incidencia real.**  
+            Las cifras corresponden a casos notificados al sistema de vigilancia. No
+            capturan necesariamente todos los casos de desnutrición aguda infantil.
+            """
+        )
+        st.warning(
+            """
+            **2. Cambios en la capacidad de notificación.**  
+            Variaciones en la detección, reporte, acceso a servicios de salud o
+            actualización de registros pueden afectar las tendencias observadas.
+            """
+        )
+        st.warning(
+            """
+            **3. Municipios con baja confiabilidad.**  
+            Los municipios con pocos casos notificados en los últimos dos años tienen
+            proyecciones e índices más inestables. Deben interpretarse con precaución.
+            (555 de 1119 municipios tienen CONFIABILIDAD = BAJA, < 10 casos en 24 meses).
+            """
+        )
+        st.warning(
+            """
+            **4. Ruralidad e indigenidad.**  
+            Las variables de ruralidad e indigenidad describen la composición de los
+            casos notificados, no la composición poblacional total del municipio.
+            """
+        )
+        st.warning(
+            """
+            **5. Proyecciones de largo plazo.**  
+            Las proyecciones 2026–2030 dependen de supuestos explícitos y no incorporan
+            cambios futuros en políticas públicas, financiación, cobertura de salud,
+            seguridad alimentaria, migración, conflictos o capacidad de notificación.
+            """
+        )
+        st.warning(
+            """
+            **6. Cobertura cartográfica.**  
+            Algunos territorios pueden aparecer en los resultados pero no tener geometría
+            disponible en la cartografía utilizada. Esto no elimina sus resultados, pero
+            impide mostrarlos en el mapa municipal.
+            """
+        )
 
     st.markdown("### Uso responsable")
 
