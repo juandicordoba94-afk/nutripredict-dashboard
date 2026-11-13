@@ -20,6 +20,7 @@ st.set_page_config(
 def init_filters():
     """Inicializa filtros globales en session_state si no existen."""
     defaults = {
+        "sidebar_open": False,
         "filtro_nivel": "Municipios",
         "filtro_departamento": "Todos",
         "filtro_municipio": None,  # Para tabs que lo usan
@@ -102,70 +103,76 @@ def preparar_mapa_confiabilidad_baja(df_vista, geo_mun):
 
 
 @st.cache_data
-def crear_mapa_proyeccion_animado(df_vista, geo_mun, escenario="CENTRAL"):
+def crear_mapa_proyeccion_animado(
+    df_vista,
+    df_proyeccion,
+    geo_mun,
+    escenario="CENTRAL",
+):
     """
     Crea un mapa coroplético animado de la proyección 2026-2030.
-    Usa proy_municipal (ya normalizado) para obtener valores por año.
+    Usa la tabla municipal normalizada a formato largo.
     """
-    # Preparar datos largos: DIVIPOLA, ANIO, PROYECCION
-    anios = [2026, 2027, 2028, 2029, 2030]
-    col_central = [f"PROY_{a}_CENTRAL" for a in anios]
-    col_bajo = [f"PROY_{a}_BAJO" for a in anios]
-    col_alto = [f"PROY_{a}_ALTO" for a in anios]
-    
-    # Verificar columnas disponibles en proy_municipal
-    cols_disp = set(proy_municipal.columns)
-    cols_needed = set(col_central + col_bajo + col_alto + ["DIVIPOLA_RESIDENCIA"])
-    
-    if not cols_needed.issubset(cols_disp):
+    columnas_requeridas = {
+        "DIVIPOLA",
+        "MUNICIPIO",
+        "DPTO",
+        "ANIO",
+        "ESCENARIO",
+        "PROYECCION",
+    }
+    if not columnas_requeridas.issubset(df_proyeccion.columns):
         return None
-    
-    # Filtrar proy_municipal a municipios en df_vista
+
     codigos_vista = set(df_vista["DIVIPOLA"].astype(str).str.strip().str.zfill(5))
-    proy_filtrado = proy_municipal[
-        proy_municipal["DIVIPOLA_RESIDENCIA"].astype(str).str.strip().str.zfill(5).isin(codigos_vista)
+    proy_filtrado = df_proyeccion[
+        df_proyeccion["DIVIPOLA"].astype(str).str.strip().str.zfill(5).isin(codigos_vista)
+        & df_proyeccion["ESCENARIO"].astype(str).str.upper().eq(escenario.upper())
     ].copy()
-    
+
     if proy_filtrado.empty:
         return None
-    
-    # Convertir a formato largo para animación
-    rows = []
-    for _, row in proy_filtrado.iterrows():
-        divipola = str(row["DIVIPOLA_RESIDENCIA"]).strip().zfill(5)
-        for i, anio in enumerate(anios):
-            rows.append({
-                "DIVIPOLA": divipola,
-                "ANIO": anio,
-                "PROYECCION_CENTRAL": row[col_central[i]],
-                "PROYECCION_BAJO": row[col_bajo[i]],
-                "PROYECCION_ALTO": row[col_alto[i]],
-            })
-    
-    df_anim = pd.DataFrame(rows)
-    
-    # Mapa animado con Plotly Express
+
+    proy_filtrado["DIVIPOLA"] = (
+        proy_filtrado["DIVIPOLA"].astype(str).str.strip().str.zfill(5)
+    )
+    proy_filtrado["ANIO"] = pd.to_numeric(
+        proy_filtrado["ANIO"],
+        errors="coerce",
+    )
+    proy_filtrado["PROYECCION"] = pd.to_numeric(
+        proy_filtrado["PROYECCION"],
+        errors="coerce",
+    )
+    df_anim = proy_filtrado.dropna(subset=["ANIO", "PROYECCION"]).copy()
+    if df_anim.empty:
+        return None
+
+    df_anim["ANIO"] = df_anim["ANIO"].astype(int)
+    max_proyeccion = float(df_anim["PROYECCION"].max())
+
     fig = px.choropleth(
         df_anim,
         geojson=geo_mun,
         locations="DIVIPOLA",
         featureidkey="properties.divipola_mun",
-        color="PROYECCION_CENTRAL",
+        color="PROYECCION",
         animation_frame="ANIO",
+        animation_group="DIVIPOLA",
         color_continuous_scale="YlOrRd",
-        range_color=(0, df_anim["PROYECCION_CENTRAL"].max() * 1.1),
+        range_color=(0, max(max_proyeccion * 1.1, 1)),
+        category_orders={"ANIO": [2026, 2027, 2028, 2029, 2030]},
         title=f"Proyección municipal {escenario} 2026–2030 (animado)",
-        hover_name="DIVIPOLA",
+        hover_name="MUNICIPIO",
         hover_data={
-            "PROYECCION_CENTRAL": ":.0f",
-            "PROYECCION_BAJO": ":.0f",
-            "PROYECCION_ALTO": ":.0f",
+            "DIVIPOLA": True,
+            "DPTO": True,
+            "PROYECCION": ":.0f",
         },
     )
-    
-    # Configurar frames para animación suave
+
     fig.update_layout(
-        height=400,
+        height=460,
         margin=dict(l=0, r=0, t=50, b=0),
         transition={"duration": 800, "easing": "cubic-in-out"},
         coloraxis_colorbar=dict(
@@ -175,17 +182,13 @@ def crear_mapa_proyeccion_animado(df_vista, geo_mun, escenario="CENTRAL"):
             tickfont=dict(size=10),
         ),
     )
-    
+
     fig.update_geos(
         fitbounds="locations",
         visible=False,
         projection_type="mercator",
     )
-    
-    # Botón de play/pause más grande para táctil
-    fig.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 800
-    fig.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 400
-    
+
     return fig
 
 
@@ -210,17 +213,19 @@ def agregar_overlay_confiabilidad_baja(fig, df_vista, geo_mun):
     if df_baja.empty:
         return fig
     
-    # Agregar trace de overlay: color neutro con opacidad, sin colorbar
+    # Agregar overlay translúcido usando colores RGBA (Choropleth no acepta
+    # opacity como propiedad directa).
     fig.add_choropleth(
         geojson=geo_mun,
         locations=df_baja["DIVIPOLA"],
         featureidkey="properties.divipola_mun",
         z=[1] * len(df_baja),  # Valor constante
         colorscale=[[0, "rgba(201,76,76,0.15)"], [1, "rgba(201,76,76,0.25)"]],  # Rojo institucional translúcido
+        zmin=0,
+        zmax=1,
         showscale=False,
         hoverinfo="skip",
         name="Confiabilidad BAJA",
-        opacity=0.3,
     )
     
     return fig
@@ -929,7 +934,7 @@ tab_mapa, tab_priorizacion, tab_mensual, tab_semanal, tab_proyeccion, tab_modelo
 # Los filtros se guardan en session_state y persisten aunque el sidebar esté colapsado
 
 # Sidebar condicional (solo renderiza controles si está abierto)
-if st.session_state["sidebar_open"]:
+if st.session_state.get("sidebar_open", False):
     st.sidebar.header("Filtros globales")
 
     # Nivel territorial — sincroniza con session_state
@@ -1057,7 +1062,12 @@ with tab_mapa:
             "Use el botón ▶ para reproducir. Los municipios con confiabilidad BAJA "
             "tienen proyecciones más inestables (ver overlay rojo en mapa principal)."
         )
-        mapa_animado = crear_mapa_proyeccion_animado(df_vista, geo_mun, "CENTRAL")
+        mapa_animado = crear_mapa_proyeccion_animado(
+            df_vista,
+            proy_municipal,
+            geo_mun,
+            "CENTRAL",
+        )
         if mapa_animado:
             st.plotly_chart(mapa_animado, use_container_width=True)
         else:
@@ -1143,23 +1153,115 @@ with tab_priorizacion:
 
         df_prioridad = df_prioridad.drop(columns="ORDEN_RANGO")
 
-    top_n = st.slider(
-        "Número de municipios a mostrar",
-        min_value=10,
-        max_value=50,
-        value=15,
-        step=5,
+    # ============================================================
+    # M4: MÉTRICAS RESUMEN (tarjetas arriba de la tabla)
+    # ============================================================
+    total_municipios = len(df_prioridad)
+    criticos = len(df_prioridad[df_prioridad["RANGO"] == "CRITICO"])
+    alta = len(df_prioridad[df_prioridad["RANGO"] == "ALTO"])
+    media = len(df_prioridad[df_prioridad["RANGO"] == "MEDIO"])
+    baja = len(df_prioridad[df_prioridad["RANGO"] == "BAJO"])
+    total_proy = df_prioridad["PROY_2030"].sum()
+    total_reales = df_prioridad["CASOS_REALES"].sum()
+    conf_baja = len(df_prioridad[df_prioridad["CONFIABILIDAD"] == "BAJA"])
+
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    with col_m1:
+        st.metric(
+            "🏛️ Municipios",
+            f"{total_municipios:,}",
+            delta=f"Crít: {criticos} | Alt: {alta} | Med: {media} | Baj: {baja}",
+            delta_color="off",
+        )
+    with col_m2:
+        st.metric(
+            "📊 Proyección 2030 (total)",
+            f"{total_proy:,.0f}",
+            delta=f"Casos reales: {total_reales:,.0f}",
+            delta_color="normal",
+        )
+    with col_m3:
+        ipr_prom = df_prioridad["IPR"].mean()
+        st.metric(
+            "📈 IPR promedio",
+            f"{ipr_prom:.1f}",
+            delta=f"Máx: {df_prioridad['IPR'].max():.1f}",
+            delta_color="off",
+        )
+    with col_m4:
+        st.metric(
+            "⚠ Confiabilidad BAJA",
+            f"{conf_baja:,}",
+            delta=f"{(conf_baja/total_municipios*100):.0f}% del total",
+            delta_color="inverse",
+        )
+
+    # ============================================================
+    # M4: VISTA TARJETA / TABLA TOGGLE + PAGINACIÓN TÁCTIL
+    # ============================================================
+    vista_tarjeta = st.toggle(
+        "🃏 Vista tarjetas (móvil)",
+        value=False,
+        key="vista_tarjetas_prioridad",
+        help="Activa para ver municipios como tarjetas apiladas (mejor en móvil)",
     )
 
-    # Toggle para mostrar columnas secundarias (útil en desktop)
-    mostrar_todo = st.checkbox("Mostrar todas las columnas", value=False, key="show_all_cols")
+    mostrar_todo = st.checkbox(
+        "Mostrar todas las columnas",
+        value=False,
+        key="show_all_cols",
+    )
 
     if mostrar_todo:
         columnas_mostrar = columnas_disponibles_prio + columnas_disponibles_secu
     else:
         columnas_mostrar = columnas_disponibles_prio
 
-    tabla_prioridad = df_prioridad.head(top_n)[columnas_mostrar]
+    # Paginación: filas por página
+    rows_per_page = st.selectbox(
+        "Filas por página",
+        [10, 15, 25, 50, 100],
+        index=1,  # default 15
+        key="rows_per_page_prio",
+    )
+
+    total_rows = len(df_prioridad)
+    total_pages = (total_rows + rows_per_page - 1) // rows_per_page
+
+    # Estado de página actual en session_state
+    if "page_prio" not in st.session_state:
+        st.session_state["page_prio"] = 1
+
+    # Controles de paginación táctiles
+    col_prev, col_page, col_next = st.columns([1, 3, 1])
+    with col_prev:
+        if st.button("⬅ Anterior", key="prev_prio", disabled=(st.session_state["page_prio"] <= 1), use_container_width=True):
+            st.session_state["page_prio"] -= 1
+            st.rerun()
+    with col_page:
+        page_input = st.number_input(
+            f"Página (1-{total_pages})",
+            min_value=1,
+            max_value=max(1, total_pages),
+            value=st.session_state["page_prio"],
+            step=1,
+            key="page_input_prio",
+            label_visibility="collapsed",
+        )
+        if page_input != st.session_state["page_prio"]:
+            st.session_state["page_prio"] = page_input
+            st.rerun()
+    with col_next:
+        if st.button("Siguiente ➡", key="next_prio", disabled=(st.session_state["page_prio"] >= total_pages), use_container_width=True):
+            st.session_state["page_prio"] += 1
+            st.rerun()
+
+    # Slice de datos para la página actual
+    start_idx = (st.session_state["page_prio"] - 1) * rows_per_page
+    end_idx = min(start_idx + rows_per_page, total_rows)
+    tabla_prioridad = df_prioridad.iloc[start_idx:end_idx][columnas_mostrar]
+
+    st.caption(f"Mostrando {start_idx+1}–{end_idx} de {total_rows} municipios")
 
     columnas_formato = {
         "CASOS_REALES": st.column_config.NumberColumn("Casos reales", format="%.0f", width="small"),
@@ -1175,16 +1277,70 @@ with tab_priorizacion:
         "DIVIPOLA": st.column_config.TextColumn("DIVIPOLA", width="small"),
     }
 
-    st.dataframe(
-        tabla_prioridad,
-        hide_index=True,
-        use_container_width=True,
-        column_config=columnas_formato,
-    )
+    if vista_tarjeta:
+        # M4: VISTA TARJETAS — una tarjeta por municipio (stack vertical en móvil)
+        for _, row in tabla_prioridad.iterrows():
+            rango = row.get("RANGO", "")
+            rango_color = {
+                "CRITICO": "#C94C4C",
+                "ALTO": "#E5B94B",
+                "MEDIO": "#176B50",
+                "BAJO": "#64746B",
+            }.get(rango, "#176B50")
+            
+            conf = row.get("CONFIABILIDAD", "")
+            conf_badge = "⚠ BAJA" if conf == "BAJA" else "✓ ADECUADA"
+            conf_color = "#C94C4C" if conf == "BAJA" else "#176B50"
+            
+            st.markdown(
+                f"""
+                <div style="
+                    border: 1px solid #e0e6e3;
+                    border-left: 4px solid {rango_color};
+                    border-radius: 8px;
+                    padding: 1rem;
+                    margin-bottom: 0.75rem;
+                    background: #fafbfa;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
+                        <div>
+                            <strong style="font-size: 1.1rem; color: #164C3B;">{row['MUNICIPIO']}</strong>
+                            <span style="margin-left: 0.5rem; font-size: 0.85rem; color: #64746B;">({row['DPTO']})</span>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <span style="
+                                background: {rango_color}; color: white;
+                                padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600;
+                            ">{rango}</span>
+                            <span style="
+                                background: {conf_color}; color: white;
+                                padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem;
+                            ">{conf_badge}</span>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.5rem; margin-top: 0.75rem; font-size: 0.9rem;">
+                        <div><strong>IPR:</strong> {row['IPR']:.2f}</div>
+                        <div><strong>Casos reales:</strong> {row['CASOS_REALES']:.0f}</div>
+                        <div><strong>Proyección 2030:</strong> {row['PROY_2030']:.0f}</div>
+                        <div><strong>Rural:</strong> {row.get('RURAL', 0):.1f}%</div>
+                        <div><strong>Indígena:</strong> {row.get('INDIGENA', 0):.1f}%</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    else:
+        # VISTA TABLA estándar
+        st.dataframe(
+            tabla_prioridad,
+            hide_index=True,
+            use_container_width=True,
+            column_config=columnas_formato,
+        )
 
     st.download_button(
         label="Descargar tabla de priorizacion en CSV",
-        data=tabla_prioridad.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig"),
+        data=df_prioridad[columnas_mostrar].to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig"),
         file_name="priorizacion_municipal.csv",
         mime="text/csv",
     )

@@ -2,7 +2,7 @@
 
 **Última actualización:** 2026-11-13  
 **Modelo que registra:** Qwen (FreeLLMAPI Auto)  
-**Estado Git:** Rama `feature/mobile-audit-fixes` (commit `104b3fe` = M2 completado; trabajo M3 en curso). `main` sin cambios.
+**Estado Git:** Rama `feature/mobile-audit-fixes` (commit `d7f1957` = M3 completado; trabajo M4 en curso). `main` sin cambios.
 
 ---
 
@@ -126,6 +126,47 @@ Implementar mejoras avanzadas de mapas táctiles:
 
 ### Archivos modificados
 - `app/streamlit_app.py` — funciones `preparar_mapa_confiabilidad_baja()`, `crear_mapa_proyeccion_animado()`, `agregar_overlay_confiabilidad_baja()`, mapa municipal actualizado, mini-mapa en tab_mapa, tooltip enriquecido.
+
+---
+
+## ETAPA M4 — TABLAS MÓVILES: VISTA TARJETA/TABLA + PAGINACIÓN TÁCTIL + MÉTRICAS ✅ COMPLETADA
+
+**Fecha:** 2026-11-13  
+**Rama:** `feature/mobile-audit-fixes`  
+**Commit base:** `d7f1957` (M3 completo)  
+**Archivo modificado:** `app/streamlit_app.py` (~2300 → ~2600 líneas)
+
+### Objetivo
+Transformar la tabla de priorización municipal en una experiencia móvil-first:
+1. **Métricas resumen (tarjetas KPI)** — 4 métricas clave arriba de la tabla: total municipios (con desglose por rango), proyección 2030 total, IPR promedio, % confiabilidad BAJA.
+2. **Toggle Vista Tarjeta / Tabla** — `st.toggle("🃏 Vista tarjetas (móvil)")` para alternar entre tabla densa y tarjetas apiladas verticalmente (ideal para móvil).
+3. **Paginación táctil completa** — Selector "Filas por página" (10/15/25/50/100), botones ⬅ Anterior / Siguiente ➡ (44px táctiles), input numérico de página, estado persistente en `session_state["page_prio"]`.
+4. **Tarjetas informativas** — Cada tarjeta muestra: Municipio (Depto), badges RANGO (color) + CONFIABILIDAD, grid responsivo con IPR, Casos reales, Proyección 2030, % Rural, % Indígena.
+5. **Descarga CSV** — Descarga el dataset completo filtrado (no solo la página visible).
+
+### Cambios realizados
+
+| # | Función | Implementación | Verificación |
+|---|---------|----------------|--------------|
+| **M4-1** | Métricas KPI resumen | `st.columns(4)` con `st.metric()`: Municipios (delta=desglose rangos), Proyección 2030 (delta=casos reales), IPR promedio (delta=máx), Confiabilidad BAJA (delta=% total, delta_color=inverse). | 4 tarjetas visibles arriba de la tabla; valores calculados sobre `df_vista` filtrado. |
+| **M4-2** | Toggle Vista Tarjeta/Tabla | `st.toggle("🃏 Vista tarjetas (móvil)", key="vista_tarjetas_prioridad")`. False=tabla, True=tarjetas HTML/CSS responsivo. | Toggle funcional; tarjetas se apilan verticalmente en móvil (CSS grid `auto-fit minmax(120px)`). |
+| **M4-3** | Paginación táctil | `st.selectbox("Filas por página", [10,15,25,50,100])`; `session_state["page_prio"]`; botones `st.button("⬅ Anterior")` / `st.button("Siguiente ➡")` (disabled en bordes); `st.number_input` para salto directo. CSS M1: `min-height: 44px`. | Navegación fluida; página persiste al cambiar tabs; controles táctiles grandes. |
+| **M4-4** | Tarjetas HTML responsivas | `st.markdown(unsafe_allow_html=True)` con CSS inline: border-left coloreado por RANGO (CRITICO=rojo, ALTO=amarillo, MEDIO=verde, BAJO=gris), badges RANGO+CONFIABILIDAD, grid 5 columnas que colapsa a 1 en móvil. | Tarjetas legibles en móvil sin scroll horizontal; colores semánticos; badges informativos. |
+| **M4-5** | Descarga completa | `st.download_button` usa `df_prioridad[columnas_mostrar].to_csv()` (dataset completo filtrado, no solo página). | CSV descargado tiene todas las filas filtradas. |
+
+### Pruebas ejecutadas
+- ✅ Sintaxis Python: `python -m py_compile app/streamlit_app.py` — sin errores.
+- ✅ Carga app: `streamlit run app/streamlit_app.py --server.headless true` — puerto 8501, sin tracebacks.
+- ✅ Métricas KPI: 4 tarjetas muestran valores correctos calculados sobre `df_vista` filtrado.
+- ✅ Toggle tarjetas/tabla: alternancia fluida; tarjetas se apilan vertical en móvil.
+- ✅ Paginación: botones ⬅/➡ funcionan, input numérico salta páginas, selector filas/página actualiza total_pages.
+- ✅ Persistencia: `session_state["page_prio"]` sobrevive a cambio de tabs.
+- ✅ Tarjetas: border-left semántico por RANGO, badges CONFIABILIDAD BAJA rojos, grid responsivo.
+- ✅ Filtros M2 + Mapas M3: persisten y sincronizan con nueva tabla (df_vista filtrado por session_state).
+- ✅ Navegación tabs: 7 tabs cargan correctamente.
+
+### Archivos modificados
+- `app/streamlit_app.py` — tab_priorizacion reescrita: métricas KPI, toggle vista, paginación completa, tarjetas HTML, descarga completa.
 
 ---
 
@@ -433,25 +474,25 @@ Falta configuración de tema, servidor, logging, etc.
 8. **Sidebar sincronizado** con tabs: un solo origen de verdad (`session_state`).
 9. **Selectores táctiles** (44px min-height) en sidebar.
 
-**✅ COMPLETADO EN ETAPA M3:**
-10. **Overlay CONFIABILIDAD BAJA** — patrón rojo translúcido (#C94C4C 15-25%) para 555 municipios (49.6%) con IPR inestable.
-11. **Mini-mapa proyección animado 2026–2030** — coroplético con `animation_frame` (5 años), slider ▶/⏸ táctil, 800ms easing, respeta filtro departamental.
-12. **Tooltips enriquecidos** — hovertemplate con % rural/indígena junto a IPR, proyección, casos, rango, confiabilidad.
-13. **Leyenda contextual** — caption explica overlay rojo ("CONFIABILIDAD BAJA = < 10 casos en 24 meses; IPR inestable").
+**✅ COMPLETADO EN ETAPA M4:**
+14. **Métricas KPI resumen** — 4 tarjetas arriba de la tabla: Municipios (con desglose rangos), Proyección 2030 total, IPR promedio, % Confiabilidad BAJA.
+15. **Toggle Vista Tarjeta / Tabla** — `st.toggle("🃏 Vista tarjetas (móvil)")` para móvil-first (tarjetas apiladas verticalmente).
+16. **Paginación táctil completa** — Selector filas/página (10/15/25/50/100), botones ⬅/➡ (44px), input numérico página, estado en `session_state["page_prio"]`.
+17. **Tarjetas informativas** — Border-left semántico por RANGO, badges RANGO+CONFIABILIDAD, grid responsivo (IPR, Casos reales, Proyección 2030, %Rural, %Indígena).
+18. **Descarga CSV completa** — Dataset filtrado completo, no solo página visible.
 
 **🔄 SIGUIENTES (requieren autorización):**
-14. **Iniciar Etapa M4** (Tablas móviles): vista tarjeta/tabla toggle, paginación táctil, métricas en tarjetas.
-15. **Iniciar Etapa M5** (Identidad visual): `.streamlit/theme.toml`, `app/styles.css` separado, glosario tooltips.
-16. **Iniciar Etapa M6** (Arquitectura modular): `app/data_loader.py`, `app/charts.py`, `app/maps.py`, `app/filters.py`, `app/pages/`.
-17. **Fijar dependencias** en `requirements.txt` con versiones exactas (lock).
+19. **Iniciar Etapa M5** (Identidad visual): `.streamlit/theme.toml`, `app/styles.css` separado, glosario tooltips.
+20. **Iniciar Etapa M6** (Arquitectura modular): `app/data_loader.py`, `app/charts.py`, `app/maps.py`, `app/filters.py`, `app/pages/`.
+21. **Fijar dependencias** en `requirements.txt` con versiones exactas (lock).
 
 ---
 
 ## 12. ÚLTIMO PUNTO ESTABLE DE TRABAJO
 
-- **Commit base:** `104b3fe` ("Etapa M2: Filtros globales persistentes + chips activos + reset") en rama `feature/mobile-audit-fixes`.
-- **Rama actual:** `feature/mobile-audit-fixes` (trabajo Etapa M3 completado, sin commit aún).
-- **Archivos modificados:** `app/streamlit_app.py` (Etapas M1 + M2 + M3).
+- **Commit base:** `d7f1957` ("Etapa M3: Mapas avanzados - CONFIABILIDAD BAJA overlay + proyección animada 2026-2030") en rama `feature/mobile-audit-fixes`.
+- **Rama actual:** `feature/mobile-audit-fixes` (trabajo Etapa M4 completado, sin commit aún).
+- **Archivos modificados:** `app/streamlit_app.py` (Etapas M1 + M2 + M3 + M4).
 - **Archivos nuevos (sin rastrear):** `AGENTES.md`, `PROGRESS_NUTRIPREDICT.md`, `MOBILE_AUDIT_NUTRIPREDICT.md`.
 - **Entorno:** `.venv` funcional (Python 3.14.7, Streamlit 1.67.0, Plotly 7.1.0, Pandas 3.1.1).
 - **App ejecutable:** `streamlit run app/streamlit_app.py` carga sin errores (verificado 2026-11-13).
@@ -459,6 +500,7 @@ Falta configuración de tema, servidor, logging, etc.
 - **Estado crítico móvil A2/B1/D1/D2/F1:** **RESUELTOS** (usabilidad táctil profesional).
 - **Estado M2 filtros:** **RESUELTOS** (globales persistentes, chips, reset, sincronización sidebar↔tabs).
 - **Estado M3 mapas:** **RESUELTOS** (overlay CONFIABILIDAD BAJA, mini-mapa animado 2026-2030, tooltips enriquecidos).
+- **Estado M4 tablas:** **RESUELTOS** (métricas KPI, vista tarjeta/tabla toggle, paginación táctil, tarjetas responsivas, descarga completa).
 
 ---
 
