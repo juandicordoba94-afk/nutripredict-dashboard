@@ -230,191 +230,94 @@ def agregar_overlay_confiabilidad_baja(fig, df_vista, geo_mun):
     
     return fig
 
-st.markdown(
+# ============================================================
+# CARGA DE ESTILOS CSS EXTERNOS + GLOOSARIO
+# ============================================================
+
+@st.cache_data
+def load_css():
+    """Carga el archivo CSS externo y lo inyecta como <style>."""
+    css_path = ROOT / "app" / "styles.css"
+    if css_path.exists():
+        with open(css_path, encoding="utf-8") as f:
+            return f.read()
+    return ""
+
+
+css_content = load_css()
+if css_content:
+    st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
+
+
+# Glosario técnico para tooltips (M5)
+GLOSARIO = {
+    "IPR": (
+        "Índice de Priorización Relativa (0–100). "
+        "Ordena municipios según volumen esperado (50%), ruralidad (25%) e indigenidad (25%). "
+        "No es un diagnóstico ni mide riesgo individual."
+    ),
+    "CONFIABILIDAD": (
+        "Clasifica la estabilidad del IPR según casos notificados en 24 meses. "
+        "ADECUADA ≥ 10 casos; BAJA < 10 casos (IPR inestable, interpretar con precaución)."
+    ),
+    "RANGO": (
+        "Clasificación por cuartiles del IPR: CRÍTICO (Q4), ALTO (Q3), MEDIO (Q2), BAJO (Q1). "
+        "Sirve para priorizar visualmente; no implica umbrales de riesgo absoluto."
+    ),
+    "PROY_2030": (
+        "Proyección de casos notificados esperados para 2030 (escenario central). "
+        "Basado en nivel base (media 2023–2024), tendencia departamental encogida y tope ±10% anual "
+        "amortiguado 15%/año. Es un escenario de planeación, no una predicción determinista."
+    ),
+    "RURAL": (
+        "% de casos notificados en zonas rurales del municipio (con encogimiento K=20 hacia media nacional). "
+        "Describe composición de notificaciones, no composición poblacional total."
+    ),
+    "INDIGENA": (
+        "% de casos notificados en población indígena del municipio (con encogimiento K=20 hacia media nacional). "
+        "Describe composición de notificaciones, no composición poblacional total."
+    ),
+    "CASOS_REALES": (
+        "Casos notificados observados en el período de prueba (2024–2025). "
+        "Unidad: notificación al evento 113 de SIVIGILA, no persona ni incidencia real."
+    ),
+    "CASOS_PRED": (
+        "Casos predichos por el modelo seleccionado (LightGBM mensual / XGBoost semanal) "
+        "en validación a un paso (usa información hasta el periodo anterior)."
+    ),
+    "ESCENARIO": (
+        "Tres trayectorias de planeación 2026–2030: BAJO (−5 pp), CENTRAL (base), ALTO (+5 pp). "
+        "Variación de crecimiento anual; no son intervalos de confianza estadísticos."
+    ),
+    "IC80": (
+        "Intervalo de credibilidad 80% (log-normal, σ departamental=0.291, nacional=0.155). "
+        "Retro-validado solo hasta horizonte 6 meses; más allá es supuesto de planeación."
+    ),
+    "DIVIPOLA": (
+        "Código único de 5 dígitos (DANE) que identifica el municipio de residencia. "
+        "Primeros 2 dígitos = código de departamento."
+    ),
+    "SIVIGILA_113": (
+        "Sistema de Vigilancia en Salud Pública (Colombia). "
+        "Evento 113 = Desnutrición aguda en menores de 5 años. "
+        "Fuente primaria de todos los datos de esta app."
+    ),
+}
+
+
+def tooltip(term: str, label: str = None) -> str:
     """
-    <style>
-    *, *::before, *::after {
-        box-sizing: border-box;
-    }
-
-    [data-testid="stMainBlockContainer"] {
-        width: 100%;
-        max-width: 1600px;
-        padding-inline: clamp(1rem, 3vw, 3rem);
-    }
-
-    [data-testid="stPlotlyChart"],
-    [data-testid="stDataFrame"],
-    [data-testid="stTable"] {
-        min-width: 0;
-        max-width: 100%;
-    }
-
-    /* Header con botón de filtros */
-    .nutripredict-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        flex-wrap: wrap;
-        margin-bottom: 1rem;
-    }
-    .nutripredict-title {
-        flex: 1;
-        min-width: 0;
-    }
-    .nutripredict-filter-btn {
-        flex-shrink: 0;
-    }
-
-    @media (min-width: 769px) and (max-width: 1100px) {
-        [data-testid="stMainBlockContainer"] {
-            padding-inline: 1.5rem;
-        }
-        h1 { font-size: 2.1rem; }
-    }
-
-    @media (max-width: 768px) {
-        [data-testid="stMainBlockContainer"] {
-            padding: 0.75rem 0.75rem 1.5rem;
-        }
-        h1 { font-size: 1.65rem; line-height: 1.2; }
-        h2 { font-size: 1.3rem; }
-        h3 { font-size: 1.1rem; }
-
-        /* Tabs táctiles: mínimo 44x44px, fuente legible, wrap en móviles muy pequeños */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 0.35rem;
-            flex-wrap: wrap;
-            justify-content: flex-start;
-            overflow-x: auto;
-            scrollbar-width: thin;
-            padding-bottom: 0.25rem;
-        }
-        .stTabs [data-baseweb="tab"] {
-            flex: 0 0 auto;
-            min-height: 44px;
-            min-width: 44px;
-            padding: 0.65rem 1rem;
-            white-space: nowrap;
-            font-size: 1rem;
-            border-radius: 8px;
-            background: #f0f3f1;
-            color: #164c3b;
-            border: 1px solid #e0e6e3;
-            transition: background 0.15s, color 0.15s;
-        }
-        .stTabs [data-baseweb="tab"]:hover {
-            background: #e0e6e3;
-        }
-        .stTabs [data-baseweb="tab"][aria-selected="true"] {
-            background: #176b50;
-            color: #ffffff;
-            border-color: #176b50;
-        }
-        .stTabs [data-baseweb="tab"][aria-selected="true"]:focus-visible {
-            outline: 2px solid #e5b94b;
-            outline-offset: 2px;
-        }
-
-        /* Reducir padding en móviles muy estrechos (≤ 375px) */
-        @media (max-width: 375px) {
-            [data-testid="stMainBlockContainer"] {
-                padding: 0.5rem 0.5rem 1rem;
-            }
-            .stTabs [data-baseweb="tab"] {
-                padding: 0.55rem 0.75rem;
-                font-size: 0.95rem;
-            }
-        }
-
-        [data-testid="stPlotlyChart"] {
-            width: 100%;
-            overflow: hidden;
-        }
-        [data-testid="stDataFrame"] {
-            width: 100%;
-            overflow-x: auto;
-        }
-        [data-testid="stWidgetLabel"] {
-            font-size: 0.95rem;
-        }
-
-        /* Botones y selectores más grandes en táctil */
-        .stButton > button,
-        .stDownloadButton > button {
-            min-height: 44px;
-            font-size: 1rem;
-        }
-        .stSelectbox [data-baseweb="select"] > div {
-            min-height: 44px;
-            font-size: 1rem;
-        }
-        .stRadio [role="radiogroup"] {
-            gap: 0.5rem;
-        }
-        .stRadio label {
-            min-height: 44px;
-            display: flex;
-            align-items: center;
-        }
-        .stSlider [data-baseweb="slider"] {
-            padding-top: 1rem;
-            padding-bottom: 1rem;
-        }
-        /* Thumb del slider más grande */
-        .stSlider [role="slider"] {
-            width: 24px !important;
-            height: 24px !important;
-        }
-
-        /* Paginación de tablas táctil */
-        .stDataFrame button[aria-label*="page"],
-        .stDataFrame button[aria-label*="Page"] {
-            min-height: 44px;
-            min-width: 44px;
-            font-size: 1rem;
-        }
-    }
-
-    /* Mejoras de legibilidad de textos */
-    .stMarkdown p, .stMarkdown li {
-        line-height: 1.6;
-        max-width: 100%;
-    }
-    .stCaption {
-        color: #64746b;
-        font-size: 0.9rem;
-    }
-
-    /* Ocultar modebar de Plotly en móvil (zoom/pan nativo por pinch) */
-    @media (max-width: 768px) {
-        .modebar { display: none !important; }
-    }
-
-    /* Altura responsiva para gráficas y mapas */
-    @media (max-width: 768px) {
-        [data-testid="stPlotlyChart"] > div {
-            max-height: 60vh !important;
-        }
-        /* Mapas un poco más altos */
-        [data-testid="stPlotlyChart"]:has(.choropleth) > div,
-        [data-testid="stPlotlyChart"]:has(.choroplethmapbox) > div {
-            max-height: 65vh !important;
-        }
-    }
-    @media (max-width: 480px) {
-        [data-testid="stPlotlyChart"] > div {
-            max-height: 50vh !important;
-        }
-    }
-
-    /* Colorbar de mapas más visible */
-    .colorbar { font-size: 12px !important; }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+    Genera HTML para un término con tooltip del glosario.
+    Uso: st.markdown(tooltip("IPR", "IPR"), unsafe_allow_html=True)
+    """
+    definition = GLOSARIO.get(term.upper(), "")
+    display = label or term
+    if definition:
+        return (
+            f'<span class="np-tooltip" data-tooltip="{definition}" tabindex="0">'
+            f'{display}</span>'
+        )
+    return display
 
 # Header con título y botón de filtros
 st.markdown(
@@ -431,8 +334,8 @@ col_title, col_filter = st.columns([0.85, 0.15])
 with col_title:
     st.title("NUTRIPREDICT Colombia 2030")
     st.caption(
-        "Dashboard de priorización territorial para desnutrición aguda infantil en Colombia. "
-        "Basado en notificaciones del evento 113 de SIVIGILA (2016–2025)."
+        f"Dashboard de {tooltip('IPR', 'priorización territorial')} para desnutrición aguda infantil en Colombia. "
+        f"Basado en notificaciones del {tooltip('SIVIGILA_113', 'evento 113 de SIVIGILA')} (2016–2025)."
     )
 with col_filter:
     if st.button("🔍 Filtros", use_container_width=True, key="toggle_sidebar"):
@@ -2470,3 +2373,23 @@ with tab_metodologia:
         socioeconómicas, capacidad institucional y evidencia territorial.
         """
     )
+
+    # M5: Glosario técnico interactivo
+    st.markdown("---")
+    st.markdown("### 📖 Glosario técnico interactivo")
+    st.caption(
+        "Pasa el cursor (o toca en móvil) sobre los términos subrayados para ver su definición. "
+        "Los tooltips funcionan en hover (desktop) y tap (móvil)."
+    )
+
+    # Renderizar glosario en 3 columnas
+    glosario_items = list(GLOSARIO.items())
+    cols = st.columns(3)
+    for idx, (term, definition) in enumerate(glosario_items):
+        with cols[idx % 3]:
+            st.markdown(
+                f'<div class="np-tooltip" data-tooltip="{definition}" tabindex="0">'
+                f'<strong>{term}</strong></div>',
+                unsafe_allow_html=True,
+            )
+            st.caption(definition[:120] + "…" if len(definition) > 120 else definition)

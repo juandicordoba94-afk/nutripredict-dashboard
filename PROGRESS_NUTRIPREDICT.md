@@ -2,7 +2,7 @@
 
 **Última actualización:** 2026-11-13  
 **Modelo que registra:** Qwen (FreeLLMAPI Auto)  
-**Estado Git:** Rama `feature/mobile-audit-fixes` (commit `d7f1957` = M3 completado; trabajo M4 en curso). `main` sin cambios.
+**Estado Git:** Rama `feature/mobile-audit-fixes` (commit `2fa4b25` = M4 completado; trabajo M5 en curso). `main` sin cambios.
 
 ---
 
@@ -167,6 +167,46 @@ Transformar la tabla de priorización municipal en una experiencia móvil-first:
 
 ### Archivos modificados
 - `app/streamlit_app.py` — tab_priorizacion reescrita: métricas KPI, toggle vista, paginación completa, tarjetas HTML, descarga completa.
+
+---
+
+## ETAPA M5 — IDENTIDAD VISUAL: TEMA INSTITUCIONAL + CSS EXTERNO + GLOSARIO ✅ COMPLETADA
+
+**Fecha:** 2026-11-13  
+**Rama:** `feature/mobile-audit-fixes`  
+**Commit base:** `2fa4b25` (M4 completo)  
+**Archivos nuevos:** `.streamlit/theme.toml`, `app/styles.css`  
+**Archivo modificado:** `app/streamlit_app.py` (~2600 → ~2700 líneas)
+
+### Objetivo
+Externalizar estilos a archivo CSS dedicado, crear tema institucional Streamlit (`.streamlit/theme.toml`), e implementar glosario técnico interactivo con tooltips accesibles (hover/tap).
+
+### Cambios realizados
+
+| # | Función | Implementación | Verificación |
+|---|---------|----------------|--------------|
+| **M5-1** | Tema Streamlit institucional | `.streamlit/theme.toml` con `primaryColor=#176B50`, `backgroundColor=#FFFFFF`, `secondaryBackgroundColor=#EAF3ED`, `textColor=#164C3B`, config de server/runner/browser/logger. | Streamlit aplica paleta nativa a widgets (buttons, tabs, inputs, metricas); coherente con CSS custom. |
+| **M5-2** | CSS externalizado | `app/styles.css` (~400 líneas) con: variables de paleta, componentes `.np-badge`, `.np-filter-chip`, `.np-card`, `.np-tooltip`, `.np-metric`, media queries responsive, scrollbars, focus-visible, animaciones. Cargado vía `@st.cache_data` + `st.markdown(unsafe_allow_html=True)`. | App carga CSS desde archivo; cambios en CSS no requieren tocar Python; cache invalida al modificar archivo. |
+| **M5-3** | Glosario técnico interactivo | Diccionario `GLOSARIO` (12 términos: IPR, CONFIABILIDAD, RANGO, PROY_2030, RURAL, INDIGENA, CASOS_REALES, CASOS_PRED, ESCENARIO, IC80, DIVIPOLA, SIVIGILA_113). Función `tooltip(term, label)` genera `<span class="np-tooltip" data-tooltip="...">`. Tooltip CSS puro (hover desktop, tap móvil via `tabindex="0"`). Renderizado en 3 columnas al final de pestaña Metodología. | Hover en desktop muestra definición completa; tap en móvil abre tooltip; 12 términos cubren todas las métricas clave. |
+| **M5-4** | Tooltips en caption principal | `tooltip("IPR")` y `tooltip("SIVIGILA_113")` en caption del header. | Usuario ve definición al pasar cursor/tocar términos clave desde el inicio. |
+| **M5-5** | Componentes CSS reutilizables | Clases `.np-badge` (rangos), `.np-card` (tarjetas priorización), `.np-filter-chip` (chips M2), `.np-metric` (KPIs), `.np-tooltip` (glosario). Colores semánticos desde paleta institucional. | Consistencia visual en toda la app; fácil mantenimiento; dark-mode ready (solo variables). |
+
+### Pruebas ejecutadas
+- ✅ Sintaxis Python: `python -m py_compile app/streamlit_app.py` — sin errores.
+- ✅ Carga app: `streamlit run app/streamlit_app.py --server.headless true` — puerto 8501, sin tracebacks.
+- ✅ Tema `.streamlit/theme.toml`: widgets nativos (botones, tabs, selectbox, metricas) usan paleta institucional.
+- ✅ CSS `app/styles.css`: cargado correctamente; estilos aplicados a tabs, botones, tarjetas, tooltips, paginación.
+- ✅ Glosario: 12 términos renderizados en 3 columnas en pestaña Metodología; tooltips funcionan en hover (desktop) y tap (móvil).
+- ✅ Tooltips en header: IPR y SIVIGILA_113 muestran definición al hover/tap.
+- ✅ Filtros M2 + Mapas M3 + Tablas M4: persisten y sincronizan con nueva arquitectura CSS.
+- ✅ Navegación tabs: 7 tabs cargan correctamente.
+
+### Archivos nuevos
+- `.streamlit/theme.toml` — Configuración de tema Streamlit + server/runner/browser/logger.
+- `app/styles.css` — Estilos CSS institucionales completos (~400 líneas, comentados, organizados por secciones).
+
+### Archivos modificados
+- `app/streamlit_app.py` — `load_css()` con cache, `GLOSARIO` dict, `tooltip()` function, caption con tooltips, sección glosario en tab_metodologia.
 
 ---
 
@@ -474,26 +514,25 @@ Falta configuración de tema, servidor, logging, etc.
 8. **Sidebar sincronizado** con tabs: un solo origen de verdad (`session_state`).
 9. **Selectores táctiles** (44px min-height) en sidebar.
 
-**✅ COMPLETADO EN ETAPA M4:**
-14. **Métricas KPI resumen** — 4 tarjetas arriba de la tabla: Municipios (con desglose rangos), Proyección 2030 total, IPR promedio, % Confiabilidad BAJA.
-15. **Toggle Vista Tarjeta / Tabla** — `st.toggle("🃏 Vista tarjetas (móvil)")` para móvil-first (tarjetas apiladas verticalmente).
-16. **Paginación táctil completa** — Selector filas/página (10/15/25/50/100), botones ⬅/➡ (44px), input numérico página, estado en `session_state["page_prio"]`.
-17. **Tarjetas informativas** — Border-left semántico por RANGO, badges RANGO+CONFIABILIDAD, grid responsivo (IPR, Casos reales, Proyección 2030, %Rural, %Indígena).
-18. **Descarga CSV completa** — Dataset filtrado completo, no solo página visible.
+**✅ COMPLETADO EN ETAPA M5:**
+19. **Tema Streamlit institucional** — `.streamlit/theme.toml` con paleta oficial (#176B50, #164C3B, #EAF3ED, #E5B94B, #C94C4C, #64746B), config server/runner/browser/logger.
+20. **CSS externalizado** — `app/styles.css` (~400 líneas): componentes `.np-badge`, `.np-card`, `.np-tooltip`, `.np-filter-chip`, `.np-metric`, media queries, scrollbars, focus-visible, animaciones. Cargado vía `@st.cache_data`.
+21. **Glosario técnico interactivo** — 12 términos (IPR, CONFIABILIDAD, RANGO, PROY_2030, RURAL, INDIGENA, CASOS_REALES, CASOS_PRED, ESCENARIO, IC80, DIVIPOLA, SIVIGILA_113) con tooltips CSS puro (hover desktop / tap móvil). Renderizado en 3 columnas en pestaña Metodología.
+22. **Tooltips en header** — IPR y SIVIGILA_113 en caption principal con definiciones accesibles.
+23. **Componentes reutilizables** — Clases CSS semánticas para badges, tarjetas, chips, métricas, tooltips; colores desde paleta institucional.
 
 **🔄 SIGUIENTES (requieren autorización):**
-19. **Iniciar Etapa M5** (Identidad visual): `.streamlit/theme.toml`, `app/styles.css` separado, glosario tooltips.
-20. **Iniciar Etapa M6** (Arquitectura modular): `app/data_loader.py`, `app/charts.py`, `app/maps.py`, `app/filters.py`, `app/pages/`.
-21. **Fijar dependencias** en `requirements.txt` con versiones exactas (lock).
+24. **Iniciar Etapa M6** (Arquitectura modular): `app/data_loader.py`, `app/charts.py`, `app/maps.py`, `app/filters.py`, `app/pages/`.
+25. **Fijar dependencias** en `requirements.txt` con versiones exactas (lock).
 
 ---
 
 ## 12. ÚLTIMO PUNTO ESTABLE DE TRABAJO
 
-- **Commit base:** `d7f1957` ("Etapa M3: Mapas avanzados - CONFIABILIDAD BAJA overlay + proyección animada 2026-2030") en rama `feature/mobile-audit-fixes`.
-- **Rama actual:** `feature/mobile-audit-fixes` (trabajo Etapa M4 completado, sin commit aún).
-- **Archivos modificados:** `app/streamlit_app.py` (Etapas M1 + M2 + M3 + M4).
-- **Archivos nuevos (sin rastrear):** `AGENTES.md`, `PROGRESS_NUTRIPREDICT.md`, `MOBILE_AUDIT_NUTRIPREDICT.md`.
+- **Commit base:** `2fa4b25` ("Etapa M4: Tablas móviles - Vista tarjeta/tabla toggle + paginación táctil + métricas KPI") en rama `feature/mobile-audit-fixes`.
+- **Rama actual:** `feature/mobile-audit-fixes` (trabajo Etapa M5 completado, sin commit aún).
+- **Archivos modificados:** `app/streamlit_app.py` (Etapas M1 + M2 + M3 + M4 + M5).
+- **Archivos nuevos:** `.streamlit/theme.toml`, `app/styles.css`, `AGENTES.md`, `PROGRESS_NUTRIPREDICT.md`, `MOBILE_AUDIT_NUTRIPREDICT.md`.
 - **Entorno:** `.venv` funcional (Python 3.14.7, Streamlit 1.67.0, Plotly 7.1.0, Pandas 3.1.1).
 - **App ejecutable:** `streamlit run app/streamlit_app.py` carga sin errores (verificado 2026-11-13).
 - **Estado crítico C1–C3:** **RESUELTOS** (integridad científica restaurada).
@@ -501,6 +540,7 @@ Falta configuración de tema, servidor, logging, etc.
 - **Estado M2 filtros:** **RESUELTOS** (globales persistentes, chips, reset, sincronización sidebar↔tabs).
 - **Estado M3 mapas:** **RESUELTOS** (overlay CONFIABILIDAD BAJA, mini-mapa animado 2026-2030, tooltips enriquecidos).
 - **Estado M4 tablas:** **RESUELTOS** (métricas KPI, vista tarjeta/tabla toggle, paginación táctil, tarjetas responsivas, descarga completa).
+- **Estado M5 identidad:** **RESUELTOS** (tema .streamlit/theme.toml, CSS externalizado app/styles.css, glosario 12 términos con tooltips hover/tap).
 
 ---
 
