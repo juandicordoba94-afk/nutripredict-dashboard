@@ -570,3 +570,10 @@ Falta configuración de tema, servidor, logging, etc.
 
 **Fin del registro de la ETAPA 1.**  
 A la espera de autorización para iniciar la implementación (corrección de problemas críticos C1–C3 y plan de rediseño Etapa 2).
+
+## Despliegue Streamlit Cloud: imports del paquete app (2026-11-13)
+
+- Problema: ModuleNotFoundError al importar app desde app/streamlit_app.py en Streamlit Cloud.
+- Corrección: añadir la raíz del repositorio al inicio de sys.path antes de importar el paquete.
+- Archivos: app/streamlit_app.py, PROGRESS_NUTRIPREDICT.md.
+- Validación: git diff --check; no se ejecutó Python local en este entorno.
