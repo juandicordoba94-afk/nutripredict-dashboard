@@ -7,6 +7,14 @@ from pathlib import Path
 import streamlit as st
 import pandas as pd
 
+from app.constants import (
+    RANGO_COLORES,
+    COLUMNAS_PRIORITARIAS,
+    COLUMNAS_SECUNDARIAS,
+    COLUMNAS_FORMATO,
+    ORDEN_RANGO,
+)
+
 
 # ============================================================
 # COMPONENTES DE MÉTRICAS KPI
@@ -122,14 +130,6 @@ def render_paginacion(
 # TARJETAS DE PRIORIZACIÓN (VISTA MÓVIL)
 # ============================================================
 
-RANGO_COLORES = {
-    "CRITICO": "#C94C4C",
-    "ALTO": "#E5B94B",
-    "MEDIO": "#176B50",
-    "BAJO": "#64746B",
-}
-
-
 def render_tarjetas_prioridad(df_page: pd.DataFrame):
     """Renderiza una tarjeta por municipio (vista móvil apilada)."""
     for _, row in df_page.iterrows():
@@ -180,36 +180,12 @@ def render_tarjetas_prioridad(df_page: pd.DataFrame):
 
 
 # ============================================================
-# COLUMNAS Y FORMATO DE TABLA
+# COLUMNAS Y FORMATO DE TABLA (usa constants.py)
 # ============================================================
-
-COLUMNAS_PRIORITARIAS = [
-    "RANGO", "IPR", "MUNICIPIO", "DPTO", "CASOS_REALES", "PROY_2030", "CONFIABILIDAD",
-]
-
-COLUMNAS_SECUNDARIAS = [
-    "DIVIPOLA", "CASOS_PRED", "RURAL", "INDIGENA",
-]
-
-
-COLUMNAS_FORMATO_TABLA = {
-    "CASOS_REALES": {"label": "Casos reales", "format": "%.0f", "width": "small"},
-    "CASOS_PRED": {"label": "Casos predichos", "format": "%.0f", "width": "small"},
-    "PROY_2030": {"label": "Proyección 2030", "format": "%.0f", "width": "small"},
-    "RURAL": {"label": "Rural (%)", "format": "%.1f%%", "width": "small"},
-    "INDIGENA": {"label": "Indígena (%)", "format": "%.1f%%", "width": "small"},
-    "IPR": {"label": "IPR", "format": "%.2f", "width": "small"},
-    "RANGO": {"label": "Rango", "width": "small"},
-    "CONFIABILIDAD": {"label": "Confiab.", "width": "small"},
-    "MUNICIPIO": {"label": "Municipio", "width": "medium"},
-    "DPTO": {"label": "Depto", "width": "small"},
-    "DIVIPOLA": {"label": "DIVIPOLA", "width": "small"},
-}
-
 
 def get_column_config(col_name: str) -> dict:
     """Retorna configuración de columna para st.dataframe."""
-    base = COLUMNAS_FORMATO_TABLA.get(col_name, {"label": col_name, "width": "small"})
+    base = COLUMNAS_FORMATO.get(col_name, {"label": col_name, "width": "small"})
     if "format" in base:
         return st.column_config.NumberColumn(base["label"], format=base["format"], width=base["width"])
     return st.column_config.TextColumn(base["label"], width=base["width"])
@@ -221,13 +197,12 @@ def preparar_dataframe_prioridad(df: pd.DataFrame, mostrar_todo: bool = False) -
     df_prio["IPR"] = pd.to_numeric(df_prio["IPR"], errors="coerce")
 
     if "RANGO" in df_prio.columns:
-        orden_rango = {"CRITICO": 0, "ALTO": 1, "MEDIO": 2, "BAJO": 3}
         df_prio["ORDEN_RANGO"] = (
             df_prio["RANGO"]
             .astype("string")
             .str.strip()
             .str.upper()
-            .map(orden_rango)
+            .map(ORDEN_RANGO)
             .fillna(99)
         )
         df_prio = df_prio.sort_values(["ORDEN_RANGO", "IPR"], ascending=[True, False], na_position="last")
