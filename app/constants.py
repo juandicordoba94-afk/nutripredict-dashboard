@@ -68,20 +68,9 @@ COLUMNAS_FORMATO = {
     "DIVIPOLA": {"label": "DIVIPOLA", "width": "small"},
 }
 
-# Tab names y keys
-TABS = [
-    ("Mapa", "mapa"),
-    ("Priorización municipal", "priorizacion"),
-    ("Evolución mensual", "mensual"),
-    ("Evolución semanal", "semanal"),
-    ("Proyección 2026-2030", "proyeccion"),
-    ("Modelos y calidad", "modelos"),
-    ("Metodología y limitaciones", "metodologia"),
-]
-
 # Configuración de página
 PAGE_CONFIG = {
     "page_title": "NUTRIPREDICT Colombia 2030",
     "layout": "wide",
-    "initial_sidebar_state": "collapsed",
+    "initial_sidebar_state": "auto",
 }

@@ -53,14 +53,20 @@ def render_tab_proyeccion(
             return
 
         fig = crear_proyeccion_nacional(proy_nacional)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(
+            fig,
+            width="stretch",
+            config={"displayModeBar": False, "responsive": True},
+            alt="Escenarios nacionales de proyección de casos notificados de 2026 a 2030",
+        )
 
         with st.expander("Ver proyección nacional"):
             st.dataframe(
                 tabla_escenarios(proy_nacional),
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
                 column_config=FORMATO_ESCENARIOS,
+                alt="Tabla nacional de proyecciones por año y escenario",
             )
 
     elif nivel_proyeccion == "Departamental":
@@ -91,14 +97,20 @@ def render_tab_proyeccion(
             return
 
         fig = crear_proyeccion_departamental(df_departamento, departamento_proyeccion)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(
+            fig,
+            width="stretch",
+            config={"displayModeBar": False, "responsive": True},
+            alt=f"Escenarios de proyección de casos notificados para {departamento_proyeccion}",
+        )
 
         with st.expander("Ver proyección departamental"):
             st.dataframe(
                 tabla_escenarios(df_departamento),
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
                 column_config=FORMATO_ESCENARIOS,
+                alt=f"Tabla de proyecciones por año y escenario para {departamento_proyeccion}",
             )
 
     else:  # Municipal
@@ -130,14 +142,20 @@ def render_tab_proyeccion(
             return
 
         fig = crear_proyeccion_municipal(df_municipio, municipio_proyeccion, departamento_proyeccion)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(
+            fig,
+            width="stretch",
+            config={"displayModeBar": False, "responsive": True},
+            alt=f"Escenarios de proyección de casos notificados para {municipio_proyeccion}, {departamento_proyeccion}",
+        )
 
         with st.expander("Ver proyección municipal"):
             st.dataframe(
                 tabla_escenarios(df_municipio),
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
                 column_config=FORMATO_ESCENARIOS,
+                alt=f"Tabla de proyecciones por año y escenario para {municipio_proyeccion}",
             )
 
     st.info(

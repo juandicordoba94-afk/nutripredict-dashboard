@@ -62,7 +62,8 @@ def render_tab_modelos(
         st.dataframe(
             pd.DataFrame(filas_seleccion),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
+            alt="Modelos seleccionados por frecuencia y nivel territorial",
         )
     else:
         st.info("No se encontraron modelos seleccionados en el archivo JSON.")
@@ -166,7 +167,8 @@ def render_tab_modelos(
         st.dataframe(
             metricas_filtradas,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
+            alt="Métricas filtradas de validación y prueba por modelo",
         )
 
     st.download_button(
@@ -196,7 +198,8 @@ def render_tab_modelos(
     st.dataframe(
         calidad_df,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
+        alt="Resumen de indicadores de calidad de los datos",
     )
 
     if isinstance(calidad_datos.get("exclusiones"), dict):
@@ -207,7 +210,8 @@ def render_tab_modelos(
                     columns=["Motivo", "Filas"],
                 ),
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
+                alt="Conteo de filas excluidas por motivo",
             )
 
     if calidad_datos.get("fechas_por_ano_archivo"):
@@ -215,7 +219,8 @@ def render_tab_modelos(
             st.dataframe(
                 pd.DataFrame(calidad_datos["fechas_por_ano_archivo"]),
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
+                alt="Revisión de fechas disponibles por año y archivo",
             )
 
     if isinstance(calidad_datos.get("conciliacion_totales"), dict):
@@ -226,7 +231,8 @@ def render_tab_modelos(
                     columns=["Panel", "Casos"],
                 ),
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
+                alt="Conciliación de totales de casos por panel",
             )
 
     if calidad_datos.get("pct_faltante_por_columna"):
@@ -237,7 +243,8 @@ def render_tab_modelos(
                     columns=["Columna", "Porcentaje faltante"],
                 ),
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
+                alt="Porcentaje de datos faltantes por columna",
             )
     else:
         st.caption("El informe no registra faltantes en las columnas revisadas.")

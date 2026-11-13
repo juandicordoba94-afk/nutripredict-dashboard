@@ -14,7 +14,6 @@ import pandas as pd
 def init_filters():
     """Inicializa filtros globales en session_state si no existen."""
     defaults = {
-        "sidebar_open": False,
         "filtro_nivel": "Municipios",
         "filtro_departamento": "Todos",
         "filtro_municipio": None,  # Para tabs que lo usan
@@ -35,7 +34,7 @@ def reset_filters():
     st.session_state["filtro_fecha_fin"] = None
     # También limpiar claves específicas de tabs
     for key in list(st.session_state.keys()):
-        if key.startswith(("departamento_", "municipio_", "rango_")):
+        if key.startswith(("departamento_", "municipio_", "rango_", "page_")):
             del st.session_state[key]
 
 
@@ -60,42 +59,35 @@ def aplicar_filtros_globales(df: pd.DataFrame) -> pd.DataFrame:
 # ============================================================
 
 def render_sidebar_filtros(df: pd.DataFrame):
-    """Renderiza los controles de filtros en el sidebar (solo si está abierto)."""
-    if not st.session_state.get("sidebar_open", False):
-        return
-
+    """Renderiza filtros globales en la barra lateral nativa de Streamlit."""
     st.sidebar.header("Filtros globales")
 
-    # Nivel territorial — sincroniza con session_state
-    nivel = st.sidebar.radio(
+    st.sidebar.segmented_control(
         "Nivel territorial",
         ["Departamentos", "Municipios"],
-        horizontal=True,
-        index=0 if st.session_state["filtro_nivel"] == "Departamentos" else 1,
-        key="sidebar_nivel",
-        on_change=lambda: setattr(st.session_state, "filtro_nivel", st.session_state["sidebar_nivel"]),
+        key="filtro_nivel",
     )
 
     # Departamento — sincroniza con session_state
     departamentos_list = ["Todos"] + sorted(df["DPTO"].dropna().unique().tolist())
-    dept_index = (
-        departamentos_list.index(st.session_state["filtro_departamento"])
-        if st.session_state["filtro_departamento"] in departamentos_list
-        else 0
-    )
-    departamento = st.sidebar.selectbox(
+    if st.session_state["filtro_departamento"] not in departamentos_list:
+        st.session_state["filtro_departamento"] = "Todos"
+    st.sidebar.selectbox(
         "Departamento",
         departamentos_list,
-        index=dept_index,
-        key="sidebar_departamento",
-        on_change=lambda: setattr(st.session_state, "filtro_departamento", st.session_state["sidebar_departamento"]),
+        placeholder="Seleccione un departamento",
+        key="filtro_departamento",
     )
 
     # Botón de reset en sidebar
     st.sidebar.divider()
-    if st.sidebar.button("🔄 Restablecer filtros", use_container_width=True, key="reset_sidebar"):
-        reset_filters()
-        st.rerun()
+    st.sidebar.button(
+        "Restablecer filtros",
+        width="stretch",
+        icon=":material/filter_alt_off:",
+        key="reset_sidebar",
+        on_click=reset_filters,
+    )
 
     # Info de filtros activos en sidebar
     if st.session_state["filtro_nivel"] != "Municipios" or st.session_state["filtro_departamento"] != "Todos":
@@ -117,24 +109,16 @@ def render_active_filters_chips(tab_key: str):
         chips.append(f"📅 {st.session_state['filtro_fecha_inicio']} – {st.session_state['filtro_fecha_fin']}")
 
     if chips:
-        chip_html = "".join(
-            f'<span style="display:inline-block; background:#eaf3ed; color:#176b50; '
-            f'padding:0.25rem 0.75rem; margin:0.25rem 0.5rem 0.25rem 0; '
-            f'border-radius:999px; font-size:0.85rem; border:1px solid #176b50;">{c}</span>'
-            for c in chips
-        )
-        st.markdown(
-            f'<div style="margin-bottom:0.5rem;">{chip_html}</div>',
-            unsafe_allow_html=True,
-        )
+        st.caption("Filtros activos · " + " · ".join(chips))
         if st.button(
-            "🔄 Restablecer filtros",
+            "Restablecer filtros",
             key=f"reset_global_{tab_key}",
-            use_container_width=False,
+            width="content",
+            icon=":material/filter_alt_off:",
             help="Limpiar todos los filtros",
+            on_click=reset_filters,
         ):
-            reset_filters()
-            st.rerun()
+            pass
 
 
 # ============================================================
@@ -247,5 +231,6 @@ def slider_rango_fechas(
         value=(fecha_minima.to_pydatetime(), fecha_maxima.to_pydatetime()),
         format=formato,
         key=key,
+        width="stretch",
     )
     return rango

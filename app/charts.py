@@ -113,7 +113,7 @@ def crear_proyeccion_nacional(
         y="PROYECCION",
         color="ESCENARIO",
         markers=True,
-        title="Proyección nacional de casos notificados, 2026–2030",
+        title="Casos notificados por escenario · 2026–2030",
         labels={
             "ANIO": "Año",
             "PROYECCION": "Casos notificados esperados",
@@ -146,16 +146,17 @@ def crear_proyeccion_nacional(
 
     fig.update_layout(
         height=450,
-        margin=dict(l=0, r=0, t=50, b=0),
+        margin=dict(l=0, r=0, t=55, b=105),
         hovermode="x unified",
         xaxis=dict(tickfont=dict(size=11), tickangle=0, dtick=1),
         yaxis=dict(tickfont=dict(size=11)),
         legend=dict(
             orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
+            yanchor="top",
+            y=-0.28,
+            xanchor="center",
+            x=0.5,
+            title_text="",
             font=dict(size=11),
         ),
     )

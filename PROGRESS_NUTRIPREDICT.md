@@ -570,10 +570,117 @@ Falta configuración de tema, servidor, logging, etc.
 
 **Fin del registro de la ETAPA 1.**  
 A la espera de autorización para iniciar la implementación (corrección de problemas críticos C1–C3 y plan de rediseño Etapa 2).
+## Despliegue Streamlit Cloud: resolución de imports (2026-11-13)
 
-## Despliegue Streamlit Cloud: imports del paquete app (2026-11-13)
+- Diagnóstico: el punto de entrada está en app/streamlit_app.py y los imports from app... necesitan que la raíz del repositorio esté en sys.path.
+- Cambio: el punto de entrada añade Path(__file__).resolve().parents[1] a sys.path antes de importar los módulos del paquete.
+- Git: origin/main incluye el paquete modular y sus páginas; la rama local estaba 11 commits detrás de origin/main al revisar.
+- Validación: no se ejecutó Streamlit en esta sesión.
 
-- Problema: ModuleNotFoundError al importar app desde app/streamlit_app.py en Streamlit Cloud.
-- Corrección: añadir la raíz del repositorio al inicio de sys.path antes de importar el paquete.
-- Archivos: app/streamlit_app.py, PROGRESS_NUTRIPREDICT.md.
-- Validación: git diff --check; no se ejecutó Python local en este entorno.
+
+## Rediseño integral: auditoría e implementación inicial (2026-11-13)
+
+### Auditoría antes de cambios
+- Se revisaron README, instrucciones del proyecto, estado de Git, orquestador, módulos de carga/normalización, filtros, componentes, mapas, gráficas y las siete vistas existentes.
+- El árbol de trabajo ya contenía una modularización local amplia; la rama local `main` aparece 12 commits detrás de `origin/main` y el estado de Git incluye cambios y archivos sin seguimiento. No se actualizó la rama ni se sustituyeron esos archivos.
+- Hallazgos principales: siete `st.tabs` procesaban todas las vistas en cada rerun; un JavaScript intentaba abrir/cerrar el sidebar mediante selectores internos y estado de `sessionStorage`; la vista inicial no ofrecía síntesis nacional; y la comparación de cobertura se calculaba pero no se presentaba en la app.
+- `.streamlit/config.toml` estaba vacío. El tema y algunos ajustes de servidor estaban en `.streamlit/theme.toml`, archivo que Streamlit no usa como configuración activa. Se activó solo el tema en `config.toml`; no se copiaron a la configuración activa los ajustes de servidor del archivo inactivo.
+
+### Cambios implementados
+- Se agregó una portada de resumen nacional con conteo de municipios, municipios en rango crítico, suma municipal de `PROY_2030` y municipios con confiabilidad baja. Incluye la serie nacional de escenarios existente y un top municipal por IPR. No se modificaron fuentes, fórmulas ni resultados.
+- Se reemplazaron las pestañas por un selector de sección que renderiza una sola vista, conservando las siete vistas previas y agregando “Resumen nacional”.
+- Se quitaron el botón y el JavaScript frágiles del sidebar. Los filtros globales ahora usan controles nativos de Streamlit y el sidebar usa el comportamiento adaptable nativo.
+- La página metodológica recibe las diferencias reales de cobertura DIVIPOLA del cargador y presenta resultados sin geometría y geometrías sin resultados, con códigos consultables.
+- Se activó el tema institucional en `.streamlit/config.toml`, se redujo y centralizó el CSS responsive, y se actualizaron las llamadas de ancho a `width="stretch"`/`width="content"`. Las gráficas principales ahora usan configuración responsive y texto alternativo.
+
+### Archivos
+- Modificados: `.streamlit/config.toml`, `app/streamlit_app.py`, `app/constants.py`, `app/filters.py`, `app/components.py`, `app/styles.css`, `app/pages/mapa.py`, `app/pages/mensual.py`, `app/pages/semanal.py`, `app/pages/proyeccion.py`, `app/pages/metodologia.py`.
+- Nuevo: `app/pages/resumen.py`.
+
+### Validación y pendientes
+- Revisión estática de rutas, nombres de campos y estructura de navegación; no se ejecutó la app ni pruebas automatizadas en esta etapa.
+- Pendiente: revisión visual en tamaños 320×568, 375×667, 390×844, 430×932, 768×1024 y 1366×768, y comprobación interactiva de filtros/mapas/descargas.
+- No se modificaron los datos ni outputs. No se creó commit ni se hizo push.
+- Estado Git base: `main...origin/main [behind 12]` con cambios previos y archivos sin seguimiento ya presentes al comenzar. No sincronizar ni limpiar sin revisar esos cambios con el usuario.
+## Diagnóstico de vistas sin contenido (2026-11-13)
+
+- Mapa: añadida validación de columnas y de coincidencia DIVIPOLA/GeoJSON. El mapa municipal limita la visualización a geometrías coincidentes y avisa cuántos municipios no se pueden representar; ahora muestra un estado explicativo cuando el filtro no tiene resultados o no hay códigos coincidentes. La animación se evalúa explícitamente contra `None`.
+- Priorización: se muestran errores/estados vacíos de forma explícita. La vista de tarjetas usa el conjunto completo de columnas, de modo que ruralidad e indigenidad no se lean como cero por estar ocultas en la tabla compacta.
+- Mensual/semanal: se validan las columnas del panel y se informan paneles vacíos o catálogos de municipio sin opciones antes de construir sliders y gráficas.
+- Validación estática: búsquedas de navegación antigua y `git diff --check`; no se inició Streamlit ni se ejecutaron pruebas automatizadas.
+## Prueba de navegación en sidebar (2026-11-13)
+
+- Se probó temporalmente mover las ocho secciones a un `st.sidebar.radio` vertical; se retiró la modificación porque no se pudo verificar la vista: el ejecutable `venv/Scripts/streamlit.exe` termina antes de iniciar Streamlit, ya que el intérprete local no encuentra la biblioteca estándar `encodings`, y no hay otro Python accesible en el entorno.
+- Se restauró el selector de sección en el área principal. No queda una lista de navegación en el sidebar; allí permanecen únicamente los filtros globales.
+- `git diff --check` se ejecutó después de la reversión. No se realizó commit ni push.
+## Auditoría local de navegación (2026-11-13)
+
+### Causa del comportamiento
+- El selector anterior sí estaba conectado: sus ocho opciones tenían ramas `if/elif` distintas y no estaba dentro de un formulario; no había un `st.rerun()` ausente ni clave duplicada.
+- El problema de experiencia confirmado era el orden del script: al cambiar de opción, Streamlit volvía a cargar y normalizar los paneles, hojas, resultados y GeoJSON antes de dibujar el selector o indicar la vista activa. `inicializar_datos()` no estaba cacheada como conjunto, por lo que el usuario podía seguir viendo la vista anterior mientras esperaba y no tenía una señal clara del destino seleccionado.
+
+### Corrección
+- La navegación y `st.header(seccion)` se renderizan antes de preparar los datos, mostrando de inmediato la sección solicitada.
+- Se agregó `@st.cache_data` a `inicializar_datos()` para reutilizar la carga/normalización en reruns de la misma sesión de caché.
+- Se eliminaron subtítulos duplicados de las páginas para que el encabezado principal indique de forma consistente qué sección está activa.
+- Se conservaron el selector actual, las ramas de renderizado y los filtros; no se alteraron datos ni cálculos científicos.
+
+### Inspección y pruebas
+- Revisados el estado/diff de Git (sin cambios staged), el punto de entrada, todos los módulos Python de `app/`, imports, configuración, dependencias, datos y GeoJSON. `app/verificar_codigos.py` aparece como eliminación local previa y no está importado por la aplicación; se dejó intacta.
+- No se encontraron archivos de pruebas del proyecto.
+- `git diff --check`: sin errores de whitespace.
+- `venv/Scripts/python.exe -m compileall -q app` y el inicio de Streamlit no pudieron ejecutarse: el runtime Python de este entorno no encuentra la biblioteca estándar `encodings` (`C:\Python314` está incompleto). No se afirma que las pruebas de sintaxis, importación, filtros, gráficas o mapas hayan pasado.
+- No se hizo commit ni push. `main` continúa 12 commits detrás de `origin/main`; se conservaron los cambios locales y archivos no rastreados.
+## Reversión del último ajuste de navegación y paleta verde (2026-11-13)
+
+- Se revirtió la modificación más reciente del flujo: los datos vuelven a prepararse antes de mostrar el selector, se retiró el encabezado dinámico y se restauraron los subtítulos originales por sección. `inicializar_datos()` ya no tiene caché global adicional.
+- La navegación sigue en el área principal con el selector previo. No hay menú de secciones en el sidebar; permanecen los filtros globales.
+- Los mapas departamental, municipal y animado usan la escala continua `Greens` de Plotly. El overlay rojo de confiabilidad baja se conserva como alerta diferenciada.
+- No se modificaron datos ni resultados. No se hizo commit ni push.
+## Retiro de menú automático y ajuste de mapa/resumen (2026-11-13)
+
+- Causa del menú lateral mostrado en la captura: el entrypoint es `app/streamlit_app.py` y su directorio `app/pages/` activa la autodetección de páginas multipágina de Streamlit. Los archivos son componentes de renderizado importados por el selector, no páginas independientes.
+- Se renombró el paquete a `app/views/` y se actualizaron los imports. Así Streamlit deja de generar el menú automático; la barra lateral mantiene los filtros generales. Hace falta reiniciar o recargar el servidor para que Streamlit vuelva a descubrir archivos.
+- Se eliminó la presentación animada de la proyección municipal y su función específica, junto con el argumento que ya no se necesitaba en el renderer del mapa. Se conservó la proyección municipal tabular/gráfica de la sección de proyecciones.
+- El resumen nacional ahora muestra la curva 2026–2030 a ancho completo y el cuadro de mayor IPR debajo. La tabla del resumen filtra explícitamente años 2026 a 2030.
+- Los mapas departamental y municipal usan escala verde continua. Se mantiene la capa roja que identifica confiabilidad baja.
+- Revisión estática: no quedan imports `app.pages`, navegación automática por código, ni referencias al mapa animado; `git diff --check` pasó. No fue posible ejecutar Streamlit en este entorno por el runtime Python sin la biblioteca estándar `encodings`.
+- No se modificaron datos ni cálculos y no se hizo commit/push.
+## Corrección de leyenda del escenario nacional (2026-11-13)
+
+- Se quitó el título redundante de la leyenda (`Escenario`) y se reubicaron sus series debajo del gráfico nacional con margen inferior adicional para evitar que se monten sobre el título.
+- `git diff --check` no reporta errores. No hubo verificación visual porque el runtime local de Python sigue sin encontrar `encodings`.
+
+## Rediseño del mapa: resumen y exploración territorial (2026-11-13)
+
+### Cambios
+- La portada conserva una vista resumida de IPR, baja y sin controles de exploración. Agrega un acceso directo a la sección territorial.
+- “Panorama territorial” ahora usa Folium/Leaflet con mapa base OpenStreetMap, zoom, paneo, escala, pantalla completa, búsqueda por municipio, tooltip, popup y selector temático de IPR, casos del período o confiabilidad.
+- Los casos del mapa se agregan desde el panel mensual filtrado por el período seleccionado. Unir casos a resultados conserva ausencias como `null`; no se convierten en cero.
+- Los clics sobre geometrías se resuelven con el punto de clic y point-in-polygon contra el GeoJSON municipal local. La ficha usa DIVIPOLA para mostrar resultados, casos del período, IPR, rango y confiabilidad.
+- La ficha contiene una línea mensual del municipio y del conjunto departamental, agregada desde el panel mensual. Se omitió la capa de tendencia como indicador cartográfico porque no se encontró uno documentado.
+- Se fijaron Folium 0.20.0 y streamlit-folium 0.27.4 en requirements. Streamlit-Folium declara compatibilidad con Streamlit >=1.13 y Folium >=0.13; la versión de Streamlit fijada por el proyecto supera ese mínimo. El mapa base OSM tiene atribución visible integrada por Leaflet y requiere uso de tiles conforme a su política vigente.
+
+### Archivos
+- Modificados: `app/maps.py`, `app/views/mapa.py`, `app/views/resumen.py`, `app/streamlit_app.py`, `requirements.txt`.
+
+### Validación y pendientes
+- `git diff --check`: pasó.
+- Auditoría de cobertura DIVIPOLA con los JSON locales: 1.119 municipios en resultados y 1.122 geometrías; 1.117 códigos coinciden, 2 resultados no tienen geometría y 5 geometrías no tienen resultados. No hay códigos duplicados en ninguno de los dos archivos. El mapa muestra solo coincidencias y avisa de los resultados sin geometría.
+- No se pudo hacer comprobación de sintaxis, iniciar Streamlit, inspeccionar selección interactiva ni revisar tamaños de pantalla: el comando `py` no está disponible y el entorno virtual local referido en el registro sigue sin poder iniciar Python por falta de la biblioteca estándar `encodings`.
+- Las dependencias nuevas quedaron declaradas, pero no instaladas en este entorno. La ejecución del mapa Folium sigue pendiente de instalar los requisitos y probar la aplicación en local/Cloud.
+- No se modificaron datos fuente, GeoJSON, cálculos ni outputs. No se hizo commit ni push.
+
+## Compatibilidad de argumentos en la vista territorial (2026-11-13)
+
+- Se alineó la llamada de navegación con la firma de tres argumentos de `render_tab_mapa`. El panel mensual queda disponible en `st.session_state["panel_mensual_mapa"]`, y la vista lo valida antes de dibujar.
+- El orquestador importa el renderer directamente desde `app.views.mapa`, evitando depender de la reexportación del paquete.
+- Comprobación estática: una definición de `render_tab_mapa` y una llamada con tres argumentos. `git diff --check` pasa. No se pudo ejecutar Streamlit porque el intérprete local sigue sin cargar `encodings`.
+- No se modificaron datos ni cálculos. No se hizo commit ni push.
+
+## Compatibilidad de argumentos del resumen nacional (2026-11-13)
+
+- Se alineó la llamada de `render_resumen` a dos argumentos y el GeoJSON municipal del mapa resumido se deja en `st.session_state["geojson_municipios_resumen"]`.
+- Comprobación estática: la definición y llamada de `render_resumen` aceptan dos argumentos; el renderer recupera el GeoJSON y llama `render_mapa_resumen`.
+- `git diff --check` pasó. El inicio de Streamlit volvió a fallar antes de cargar la aplicación: Python no encuentra la biblioteca estándar `encodings`. Folium y Streamlit-Folium tampoco están instalados en el entorno virtual local. No hay sesión de navegador disponible en esta herramienta para inspección visual.
+- La visibilidad del mapa sigue pendiente de reparar el intérprete e instalar `requirements.txt`. No se modificaron datos ni cálculos y no se hizo commit ni push.

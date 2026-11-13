@@ -5,3 +5,5 @@ plotly==7.1.0
 pandas==3.1.1
 pyarrow==26.0.1
 openpyxl==3.1.5
+streamlit-folium==0.27.4
+folium==0.20.0

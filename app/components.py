@@ -91,11 +91,15 @@ def render_paginacion(
     page_key = f"page_{key_prefix}"
     if page_key not in st.session_state:
         st.session_state[page_key] = 1
+    max_page = max(1, total_pages)
+    if st.session_state[page_key] > max_page:
+        st.session_state[page_key] = max_page
+        st.session_state.pop(f"page_input_{key_prefix}", None)
 
     col_prev, col_page, col_next = st.columns([1, 3, 1])
 
     with col_prev:
-        if st.button("⬅ Anterior", key=f"prev_{key_prefix}", disabled=(st.session_state[page_key] <= 1), use_container_width=True):
+        if st.button("⬅ Anterior", key=f"prev_{key_prefix}", disabled=(st.session_state[page_key] <= 1), width="stretch"):
             st.session_state[page_key] -= 1
             st.rerun()
 
@@ -103,7 +107,7 @@ def render_paginacion(
         page_input = st.number_input(
             f"Página (1-{total_pages})",
             min_value=1,
-            max_value=max(1, total_pages),
+            max_value=max_page,
             value=st.session_state[page_key],
             step=1,
             key=f"page_input_{key_prefix}",
@@ -114,7 +118,7 @@ def render_paginacion(
             st.rerun()
 
     with col_next:
-        if st.button("Siguiente ➡", key=f"next_{key_prefix}", disabled=(st.session_state[page_key] >= total_pages), use_container_width=True):
+        if st.button("Siguiente ➡", key=f"next_{key_prefix}", disabled=(st.session_state[page_key] >= total_pages), width="stretch"):
             st.session_state[page_key] += 1
             st.rerun()
 

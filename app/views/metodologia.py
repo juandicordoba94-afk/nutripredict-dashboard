@@ -8,7 +8,7 @@ from app.filters import render_active_filters_chips
 from app.components import render_glosario
 
 
-def render_tab_metodologia():
+def render_tab_metodologia(cobertura: dict | None = None):
     """Renderiza la pestaña Metodología y limitaciones."""
     render_active_filters_chips("metodologia")
     st.subheader("Metodología y limitaciones")
@@ -119,6 +119,31 @@ def render_tab_metodologia():
         para asignar recursos sin revisar el contexto territorial.
         """
     )
+
+    st.markdown("### Cobertura geográfica")
+
+    if cobertura:
+        con_resultados = cobertura.get("con_resultados", 0)
+        con_geometria = cobertura.get("con_geometria", 0)
+        sin_geometria = cobertura.get("sin_geometria", [])
+        sin_resultados = cobertura.get("sin_resultados", [])
+        col_resultados, col_geometrias, col_sin_mapa = st.columns(3)
+        col_resultados.metric("Municipios con resultados", f"{con_resultados:,}")
+        col_geometrias.metric("Municipios en cartografía", f"{con_geometria:,}")
+        col_sin_mapa.metric("Resultados sin geometría", f"{len(sin_geometria):,}")
+
+        st.caption(
+            "La comparación usa los códigos DIVIPOLA municipales de los resultados y del GeoJSON. "
+            "La falta de geometría afecta únicamente la representación cartográfica; no elimina el registro analítico."
+        )
+        if sin_geometria or sin_resultados:
+            with st.expander("Ver diferencias de cobertura por DIVIPOLA"):
+                if sin_geometria:
+                    st.write("**Con resultados, sin geometría:**", ", ".join(sin_geometria))
+                if sin_resultados:
+                    st.write("**Con geometría, sin resultados:**", ", ".join(sin_resultados))
+        else:
+            st.success("Todos los códigos municipales coinciden entre resultados y cartografía.")
 
     st.markdown("### Limitaciones principales")
 

@@ -1,4 +1,4 @@
-﻿"""
+"""
 NUTRIPREDICT Colombia 2030 - Orquestador principal
 Aplicación Streamlit modularizada (< 200 líneas).
 """
@@ -8,7 +8,8 @@ from pathlib import Path
 
 import streamlit as st
 
-# Asegura que los imports del paquete app funcionen también en Streamlit Cloud.
+# Streamlit Cloud puede iniciar el script desde /app. Añade la raíz del
+# repositorio para resolver el paquete `app` en cualquier directorio de ejecución.
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -18,9 +19,8 @@ from app import (
     init_filters,
     load_css,
 )
-from app.constants import PAGE_CONFIG, TABS
-from app.pages import (
-    render_tab_mapa,
+from app.constants import PAGE_CONFIG
+from app.views import (
     render_tab_priorizacion,
     render_tab_mensual,
     render_tab_semanal,
@@ -28,7 +28,9 @@ from app.pages import (
     render_tab_modelos,
     render_tab_metodologia,
 )
-from app.components import tooltip
+from app.views.mapa import render_tab_mapa
+from app.views.resumen import render_resumen
+from app.filters import render_sidebar_filtros
 
 
 # ============================================================
@@ -46,7 +48,7 @@ if css_content:
 
 
 # ============================================================
-# CARGA DE DATOS (cacheada)
+# CARGA DE DATOS (cacheada por archivo)
 # ============================================================
 data = inicializar_datos()
 
@@ -61,88 +63,50 @@ proy_municipal = data["proy_municipal"]
 metricas_modelos = data["metricas_modelos"]
 seleccion_modelos = data["seleccion_modelos"]
 calidad_datos = data["calidad_datos"]
+st.session_state["panel_mensual_mapa"] = panel_mensual
+st.session_state["geojson_municipios_resumen"] = geo_mun
 
 
 # ============================================================
-# HEADER CON TÍTULO Y BOTÓN DE FILTROS
+# ENCABEZADO Y NAVEGACIÓN
 # ============================================================
-st.markdown(
-    """
-    <div class="nutripredict-header">
-        <div class="nutripredict-title"></div>
-        <div class="nutripredict-filter-btn"></div>
-    </div>
-    """,
-    unsafe_allow_html=True,
+st.title("NUTRIPREDICT Colombia 2030")
+st.caption(
+    "Explora los casos notificados de desnutrición aguda en menores de 5 años en Colombia "
+    "y consulta su evolución, proyecciones y prioridades por municipio (2016–2025)."
 )
 
-col_title, col_filter = st.columns([0.85, 0.15])
-with col_title:
-    st.title("NUTRIPREDICT Colombia 2030")
-    st.caption(
-        f"Dashboard de {tooltip('IPR', 'priorización territorial')} para desnutrición aguda infantil en Colombia. "
-        f"Basado en notificaciones del {tooltip('SIVIGILA_113', 'evento 113 de SIVIGILA')} (2016–2025)."
-    )
-with col_filter:
-    if st.button("🔍 Filtros", use_container_width=True, key="toggle_sidebar"):
-        st.session_state["sidebar_open"] = not st.session_state.get("sidebar_open", False)
-        st.rerun()
-
-
-# ============================================================
-# JAVASCRIPT PARA SIDEBAR COLAPSABLE
-# ============================================================
-st.markdown(
-    """
-    <script>
-    (function() {
-        const sidebar = document.querySelector('[data-testid="stSidebar"]');
-        const toggleBtn = window.parent.document.querySelector('[data-testid="stButton"] button[key="toggle_sidebar"]');
-        if (!sidebar || !toggleBtn) return;
-        const observer = new MutationObserver(() => {
-            const isOpen = sessionStorage.getItem('sidebar_open') === 'true';
-            sidebar.style.transform = isOpen ? 'translateX(0)' : 'translateX(-100%)';
-            sidebar.style.transition = 'transform 0.3s ease';
-        });
-        observer.observe(document.body, { attributes: true, subtree: true });
-    })();
-    </script>
-    """,
-    unsafe_allow_html=True,
+secciones = [
+    "Resumen nacional",
+    "Panorama territorial",
+    "Priorización municipal",
+    "Evolución mensual",
+    "Evolución semanal",
+    "Proyecciones 2026–2030",
+    "Modelos y calidad",
+    "Metodología y alcance",
+]
+seccion = st.selectbox(
+    "Sección del dashboard",
+    secciones,
+    key="seccion_dashboard",
 )
 
-
-# ============================================================
-# SIDEBAR CON FILTROS GLOBALES
-# ============================================================
-from app.filters import render_sidebar_filtros
 render_sidebar_filtros(df)
 
-
-# ============================================================
-# TABS PRINCIPALES
-# ============================================================
-tab_mapa, tab_priorizacion, tab_mensual, tab_semanal, tab_proyeccion, tab_modelos, tab_metodologia = st.tabs(
-    [label for label, _ in TABS]
-)
-
-with tab_mapa:
-    render_tab_mapa(df, geo_dep, geo_mun, proy_municipal)
-
-with tab_priorizacion:
+if seccion == "Resumen nacional":
+    render_resumen(df, proy_nacional)
+elif seccion == "Panorama territorial":
+    render_tab_mapa(df, geo_dep, geo_mun)
+elif seccion == "Priorización municipal":
     render_tab_priorizacion(df)
-
-with tab_mensual:
+elif seccion == "Evolución mensual":
     render_tab_mensual(panel_mensual)
-
-with tab_semanal:
+elif seccion == "Evolución semanal":
     render_tab_semanal(panel_semanal)
-
-with tab_proyeccion:
+elif seccion == "Proyecciones 2026–2030":
     render_tab_proyeccion(proy_nacional, proy_departamental, proy_municipal)
-
-with tab_modelos:
+elif seccion == "Modelos y calidad":
     render_tab_modelos(seleccion_modelos, metricas_modelos, calidad_datos)
-
-with tab_metodologia:
-    render_tab_metodologia()
+else:
+    render_tab_metodologia(data["cobertura"])

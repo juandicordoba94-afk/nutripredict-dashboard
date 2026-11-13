@@ -31,6 +31,17 @@ def render_tab_priorizacion(df: pd.DataFrame):
     if st.session_state["filtro_departamento"] != "Todos":
         df_vista = df_vista[df_vista["DPTO"] == st.session_state["filtro_departamento"]]
 
+    if df_vista.empty:
+        st.info("No hay resultados de priorización para el departamento seleccionado.")
+        return
+
+    requeridas = {"RANGO", "PROY_2030", "CASOS_REALES", "IPR", "CONFIABILIDAD"}
+    faltan = requeridas - set(df_vista.columns)
+    if faltan:
+        st.error("No se puede mostrar la priorización. Faltan columnas: " + ", ".join(sorted(faltan)))
+        st.caption("Columnas disponibles: " + ", ".join(map(str, df_vista.columns)))
+        return
+
     # Preparar y ordenar DataFrame
     mostrar_todo = st.checkbox(
         "Mostrar todas las columnas",
@@ -39,6 +50,10 @@ def render_tab_priorizacion(df: pd.DataFrame):
     )
 
     df_prioridad = preparar_dataframe_prioridad(df_vista, mostrar_todo)
+
+    if df_prioridad.empty:
+        st.info("No hay columnas de priorización disponibles para mostrar.")
+        return
 
     # Métricas KPI
     total_municipios = len(df_prioridad)
@@ -73,15 +88,18 @@ def render_tab_priorizacion(df: pd.DataFrame):
 
     # Renderizar vista
     if vista_tarjeta:
-        render_tarjetas_prioridad(tabla_prioridad)
+        # Las tarjetas incluyen ruralidad e indigenidad aunque la tabla compacta las oculte.
+        df_tarjetas = preparar_dataframe_prioridad(df_vista, mostrar_todo=True)
+        render_tarjetas_prioridad(df_tarjetas.iloc[start_idx:end_idx])
     else:
         # Vista tabla estándar
         column_config = {col: get_column_config(col) for col in tabla_prioridad.columns}
         st.dataframe(
             tabla_prioridad,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             column_config=column_config,
+            alt="Tabla de priorización municipal ordenada por rango e índice IPR",
         )
 
     # Descarga CSV completa (dataset filtrado completo, no solo página)

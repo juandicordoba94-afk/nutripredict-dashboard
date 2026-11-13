@@ -18,6 +18,19 @@ def render_tab_mensual(panel_mensual: pd.DataFrame):
     render_active_filters_chips("mensual")
     st.subheader("Evolución mensual por municipio")
 
+    requeridas = {
+        "Departamentoresidencia", "Municipioresidencia", "ANIOMESDT",
+        "CASOS", "CASOSRURAL", "CASOSINDIGENA",
+    }
+    faltan = requeridas - set(panel_mensual.columns)
+    if faltan:
+        st.error("No se puede mostrar la evolución mensual. Faltan columnas: " + ", ".join(sorted(faltan)))
+        st.caption("Columnas recibidas del panel: " + ", ".join(map(str, panel_mensual.columns)))
+        return
+    if panel_mensual.empty:
+        st.info("El panel mensual está vacío; no hay observaciones para graficar.")
+        return
+
     st.caption(
         "La línea muestra casos notificados por municipio y mes. "
         "No representa incidencia real ni riesgo individual."
@@ -29,7 +42,7 @@ def render_tab_mensual(panel_mensual: pd.DataFrame):
     )
 
     if not departamento_mensual or not municipio_mensual:
-        st.warning("No hay datos disponibles.")
+        st.warning("No hay departamentos o municipios disponibles en el panel mensual.")
         return
 
     # Filtrar datos
@@ -67,14 +80,20 @@ def render_tab_mensual(panel_mensual: pd.DataFrame):
 
     # Gráfica
     fig = crear_linea_mensual(df_mensual, municipio_mensual, departamento_mensual)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(
+        fig,
+        width="stretch",
+        config={"displayModeBar": False, "responsive": True},
+        alt=f"Evolución mensual de casos notificados en {municipio_mensual}, {departamento_mensual}",
+    )
 
     # Expander con datos
     with st.expander("Ver datos mensuales"):
         st.dataframe(
             df_mensual[["ANIOMESDT", "CASOS", "CASOSRURAL", "CASOSINDIGENA"]],
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
+            alt=f"Datos mensuales de casos notificados para {municipio_mensual}",
         )
 
     # Descarga CSV
