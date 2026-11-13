@@ -1,0 +1,424 @@
+/* ============================================================
+   NUTRIPREDICT Colombia 2030 - Estilos CSS institucionales
+   Paleta: #176B50 (verde institucional), #164C3B (verde oscuro),
+           #EAF3ED (verde claro), #E5B94B (amarillo alerta),
+           #C94C4C (rojo alerta), #64746B (gris medio)
+   ============================================================ */
+
+/* Box sizing global */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+/* Contenedor principal responsivo */
+[data-testid="stMainBlockContainer"] {
+    width: 100%;
+    max-width: 1600px;
+    padding-inline: clamp(1rem, 3vw, 3rem);
+}
+
+/* Gráficas y tablas responsivas */
+[data-testid="stPlotlyChart"],
+[data-testid="stDataFrame"],
+[data-testid="stTable"] {
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* Header con botón de filtros */
+.nutripredict-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+.nutripredict-title {
+    flex: 1;
+    min-width: 0;
+}
+.nutripredict-filter-btn {
+    flex-shrink: 0;
+}
+
+/* Tablet landscape */
+@media (min-width: 769px) and (max-width: 1100px) {
+    [data-testid="stMainBlockContainer"] {
+        padding-inline: 1.5rem;
+    }
+    h1 { font-size: 2.1rem; }
+}
+
+/* Móvil y tablet portrait */
+@media (max-width: 768px) {
+    [data-testid="stMainBlockContainer"] {
+        padding: 0.75rem 0.75rem 1.5rem;
+    }
+    h1 { font-size: 1.65rem; line-height: 1.2; }
+    h2 { font-size: 1.3rem; }
+    h3 { font-size: 1.1rem; }
+
+    /* Tabs táctiles: mínimo 44x44px, fuente legible, wrap en móviles muy pequeños */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.35rem;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        padding-bottom: 0.25rem;
+    }
+    .stTabs [data-baseweb="tab"] {
+        flex: 0 0 auto;
+        min-height: 44px;
+        min-width: 44px;
+        padding: 0.65rem 1rem;
+        white-space: nowrap;
+        font-size: 1rem;
+        border-radius: 8px;
+        background: #f0f3f1;
+        color: #164c3b;
+        border: 1px solid #e0e6e3;
+        transition: background 0.15s, color 0.15s;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        background: #e0e6e3;
+    }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        background: #176b50;
+        color: #ffffff;
+        border-color: #176b50;
+    }
+    .stTabs [data-baseweb="tab"][aria-selected="true"]:focus-visible {
+        outline: 2px solid #e5b94b;
+        outline-offset: 2px;
+    }
+
+    /* Reducir padding en móviles muy estrechos (≤ 375px) */
+    @media (max-width: 375px) {
+        [data-testid="stMainBlockContainer"] {
+            padding: 0.5rem 0.5rem 1rem;
+        }
+        .stTabs [data-baseweb="tab"] {
+            padding: 0.55rem 0.75rem;
+            font-size: 0.95rem;
+        }
+    }
+
+    [data-testid="stPlotlyChart"] {
+        width: 100%;
+        overflow: hidden;
+    }
+    [data-testid="stDataFrame"] {
+        width: 100%;
+        overflow-x: auto;
+    }
+    [data-testid="stWidgetLabel"] {
+        font-size: 0.95rem;
+    }
+
+    /* Botones y selectores más grandes en táctil */
+    .stButton > button,
+    .stDownloadButton > button {
+        min-height: 44px;
+        font-size: 1rem;
+    }
+    .stSelectbox [data-baseweb="select"] > div {
+        min-height: 44px;
+        font-size: 1rem;
+    }
+    .stRadio [role="radiogroup"] {
+        gap: 0.5rem;
+    }
+    .stRadio label {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+    .stSlider [data-baseweb="slider"] {
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+    /* Thumb del slider más grande */
+    .stSlider [role="slider"] {
+        width: 24px !important;
+        height: 24px !important;
+    }
+
+    /* Paginación de tablas táctil */
+    .stDataFrame button[aria-label*="page"],
+    .stDataFrame button[aria-label*="Page"] {
+        min-height: 44px;
+        min-width: 44px;
+        font-size: 1rem;
+    }
+}
+
+/* Mejoras de legibilidad de textos */
+.stMarkdown p, .stMarkdown li {
+    line-height: 1.6;
+    max-width: 100%;
+}
+.stCaption {
+    color: #64746b;
+    font-size: 0.9rem;
+}
+
+/* Ocultar modebar de Plotly en móvil (zoom/pan nativo por pinch) */
+@media (max-width: 768px) {
+    .modebar { display: none !important; }
+}
+
+/* Altura responsiva para gráficas y mapas */
+@media (max-width: 768px) {
+    [data-testid="stPlotlyChart"] > div {
+        max-height: 60vh !important;
+    }
+    /* Mapas un poco más altos */
+    [data-testid="stPlotlyChart"]:has(.choropleth) > div,
+    [data-testid="stPlotlyChart"]:has(.choroplethmapbox) > div {
+        max-height: 65vh !important;
+    }
+}
+@media (max-width: 480px) {
+    [data-testid="stPlotlyChart"] > div {
+        max-height: 50vh !important;
+    }
+}
+
+/* Colorbar de mapas más visible */
+.colorbar { font-size: 12px !important; }
+
+/* ============================================================
+   COMPONENTES PERSONALIZADOS NUTRIPREDICT
+   ============================================================ */
+
+/* Badge semántico para rangos de prioridad */
+.np-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.np-badge--critico { background: #C94C4C; color: #fff; }
+.np-badge--alto { background: #E5B94B; color: #164C3B; }
+.np-badge--medio { background: #176B50; color: #fff; }
+.np-badge--bajo { background: #64746B; color: #fff; }
+.np-badge--conf-baja { background: #C94C4C; color: #fff; }
+.np-badge--conf-adecuada { background: #176B50; color: #fff; }
+
+/* Chip de filtro activo */
+.np-filter-chip {
+    display: inline-block;
+    background: #eaf3ed;
+    color: #176b50;
+    padding: 0.25rem 0.75rem;
+    margin: 0.25rem 0.5rem 0.25rem 0;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    border: 1px solid #176b50;
+}
+
+/* Tarjeta de priorización municipal (vista móvil) */
+.np-card {
+    border: 1px solid #e0e6e3;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    background: #fafbfa;
+}
+.np-card--critico { border-left: 4px solid #C94C4C; }
+.np-card--alto { border-left: 4px solid #E5B94B; }
+.np-card--medio { border-left: 4px solid #176B50; }
+.np-card--bajo { border-left: 4px solid #64746B; }
+
+.np-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+.np-card__municipio {
+    font-size: 1.1rem;
+    color: #164C3B;
+    font-weight: 600;
+}
+.np-card__depto {
+    font-size: 0.85rem;
+    color: #64746B;
+    margin-left: 0.5rem;
+}
+.np-card__badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.np-card__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+.np-card__grid-item strong {
+    color: #164C3B;
+}
+
+/* Tooltip/glosario */
+.np-tooltip {
+    position: relative;
+    cursor: help;
+    border-bottom: 1px dotted #176b50;
+}
+.np-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #164C3B;
+    color: #fff;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    white-space: nowrap;
+    max-width: 280px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+    z-index: 1000;
+    pointer-events: none;
+}
+.np-tooltip:hover::after,
+.np-tooltip:focus::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Métricas KPI personalizadas */
+.np-metric {
+    background: #fff;
+    border: 1px solid #e0e6e3;
+    border-left: 4px solid #176b50;
+    border-radius: 8px;
+    padding: 1rem;
+}
+.np-metric__label {
+    font-size: 0.85rem;
+    color: #64746b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+}
+.np-metric__value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #164C3B;
+    line-height: 1.2;
+}
+.np-metric__delta {
+    font-size: 0.8rem;
+    color: #64746b;
+    margin-top: 0.25rem;
+}
+
+/* Sidebar personalizado */
+[data-testid="stSidebar"] {
+    background: #fafbfa;
+}
+[data-testid="stSidebar"] .stButton > button {
+    border-radius: 8px;
+    transition: background 0.15s, color 0.15s;
+}
+[data-testid="stSidebar"] .stButton > button:hover {
+    background: #e0e6e3;
+}
+[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+    background: #176b50;
+    color: #fff;
+    border: none;
+}
+[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
+    background: #164c3b;
+}
+
+/* Expander personalizado */
+[data-testid="stExpander"] {
+    border: 1px solid #e0e6e3;
+    border-radius: 8px;
+    background: #fff;
+}
+[data-testid="stExpander"] summary {
+    font-weight: 600;
+    color: #164C3B;
+}
+
+/* Selectbox y multiselect */
+[data-baseweb="select"] {
+    border-radius: 8px;
+}
+[data-baseweb="select"] > div {
+    border: 1px solid #e0e6e3 !important;
+    border-radius: 8px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+[data-baseweb="select"] > div:hover {
+    border-color: #176b50;
+}
+[data-baseweb="select"][aria-expanded="true"] > div {
+    border-color: #176b50;
+    box-shadow: 0 0 0 2px rgba(23,107,80,0.15);
+}
+
+/* Radio buttons */
+[role="radiogroup"] {
+    gap: 0.5rem;
+}
+[role="radio"] {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+}
+
+/* DataFrame header */
+[data-testid="stDataFrame"] thead th {
+    background: #EAF3ED;
+    color: #164C3B;
+    font-weight: 600;
+    border-bottom: 2px solid #176B50;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #f0f3f1;
+}
+::-webkit-scrollbar-thumb {
+    background: #176b50;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #164c3b;
+}
+
+/* Focus visible para accesibilidad */
+*:focus-visible {
+    outline: 2px solid #e5b94b;
+    outline-offset: 2px;
+}
+
+/* Animaciones suaves */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.np-animate-in {
+    animation: fadeIn 0.3s ease-out;
+}

@@ -1,0 +1,45 @@
+# NUTRIPREDICT Colombia 2030 - Tema institucional
+# Paleta: #176B50 (verde institucional), #164C3B (verde oscuro), #EAF3ED (verde claro),
+#         #E5B94B (amarillo alerta), #C94C4C (rojo alerta), #64746B (gris medio)
+
+[theme]
+# Colores base
+primaryColor = "#176B50"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#EAF3ED"
+textColor = "#164C3B"
+
+# Colores de alerta/semánticos (para uso en componentes custom)
+# warningColor = "#E5B94B"
+# dangerColor = "#C94C4C"
+# successColor = "#176B50"
+# infoColor = "#176B50"
+
+# Tipografía
+font = "sans-serif"  # Usa la fuente del sistema (Inter, system-ui, etc.)
+
+# Configuración de servidor
+[server]
+port = 8501
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+maxUploadSize = 200
+maxMessageSize = 200
+
+# Configuración de runner
+[runner]
+magicEnabled = true
+installTracer = false
+fixMatplotlib = true
+
+# Configuración de navegador
+[browser]
+gatherUsageStats = false
+serverAddress = "localhost"
+serverPort = 8501
+
+# Configuración de logging
+[logger]
+level = "info"
+messageFormat = "%(asctime)s %(levelname)s %(name)s: %(message)s"
