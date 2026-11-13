@@ -531,16 +531,19 @@ Falta configuración de tema, servidor, logging, etc.
 30. **Páginas como módulos** — `app/pages/*.py`: 7 módulos (mapa, priorizacion, mensual, semanal, proyeccion, modelos, metodologia) con función `render_tab_*`.
 31. **Orquestador delgado** — `app/streamlit_app.py`: ~180 líneas. Config → carga datos → header → sidebar → 7 tabs delegados a `pages`.
 
+**✅ COMPLETADO ADICIONAL:**
+32. **Dependencias fijadas** — `requirements.txt` con versiones exactas (streamlit==1.67.0, plotly==7.1.0, pandas==3.1.1, pyarrow==26.0.1, openpyxl==3.1.5) para builds reproducibles.
+
 **🔄 SIGUIENTES (requieren autorización):**
-32. **Fijar dependencias** en `requirements.txt` con versiones exactas (lock).
+33. **Deploy/Producción** — Configurar hosting (Streamlit Cloud, Docker, etc.) y variables de entorno.
 
 ---
 
 ## 12. ÚLTIMO PUNTO ESTABLE DE TRABAJO
 
-- **Commit base:** `0b32701` ("Etapa M5: Identidad visual - Tema institucional + CSS externo + Glosario interactivo") en rama `feature/mobile-audit-fixes`.
-- **Rama actual:** `feature/mobile-audit-fixes` (trabajo Etapa M6 completado, sin commit aún).
-- **Archivos modificados:** `app/streamlit_app.py` (Etapas M1–M6, ~2700 → ~180 líneas), `app/__init__.py`.
+- **Commit base:** `fe7c876` ("Lock dependencies in requirements.txt with exact versions") en rama `feature/mobile-audit-fixes`.
+- **Rama actual:** `feature/mobile-audit-fixes` (Etapas M1–M6 + lock deps completadas).
+- **Archivos modificados:** `app/streamlit_app.py` (Etapas M1–M6, ~2700 → ~180 líneas), `app/__init__.py`, `requirements.txt`.
 - **Archivos nuevos:** `.streamlit/theme.toml`, `app/styles.css`, `app/data_loader.py`, `app/charts.py`, `app/maps.py`, `app/filters.py`, `app/components.py`, `app/constants.py`, `app/pages/` (7 módulos + `__init__.py`), `AGENTES.md`, `PROGRESS_NUTRIPREDICT.md`, `MOBILE_AUDIT_NUTRIPREDICT.md`.
 - **Entorno:** `.venv` funcional (Python 3.14.7, Streamlit 1.67.0, Plotly 7.1.0, Pandas 3.1.1).
 - **App ejecutable:** `streamlit run app/streamlit_app.py` carga sin errores (verificado 2026-11-13).
@@ -551,6 +554,7 @@ Falta configuración de tema, servidor, logging, etc.
 - **Estado M4 tablas:** **RESUELTOS** (métricas KPI, vista tarjeta/tabla toggle, paginación táctil, tarjetas responsivas, descarga completa).
 - **Estado M5 identidad:** **RESUELTOS** (tema .streamlit/theme.toml, CSS externalizado app/styles.css, glosario 12 términos con tooltips hover/tap).
 - **Estado M6 arquitectura:** **RESUELTOS** (14 módulos nuevos, orquestador < 200 líneas, carga datos centralizada, gráficas/mapas/filtros/componentes/páginas separados).
+- **Estado lock deps:** **RESUELTO** (requirements.txt con 5 dependencias fijadas para builds reproducibles).
 
 ---
 
