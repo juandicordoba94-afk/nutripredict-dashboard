@@ -2,7 +2,7 @@
 
 **Última actualización:** 2026-11-13  
 **Modelo que registra:** Qwen (FreeLLMAPI Auto)  
-**Estado Git:** Rama `feature/mobile-audit-fixes` (commit `2fa4b25` = M4 completado; trabajo M5 en curso). `main` sin cambios.
+**Estado Git:** Rama `feature/mobile-audit-fixes` (commit `0b32701` = M5 completado; trabajo M6 en curso). `main` sin cambios.
 
 ---
 
@@ -521,18 +521,27 @@ Falta configuración de tema, servidor, logging, etc.
 22. **Tooltips en header** — IPR y SIVIGILA_113 en caption principal con definiciones accesibles.
 23. **Componentes reutilizables** — Clases CSS semánticas para badges, tarjetas, chips, métricas, tooltips; colores desde paleta institucional.
 
+**✅ COMPLETADO EN ETAPA M6:**
+24. **Carga de datos centralizada** — `app/data_loader.py`: `inicializar_datos()` carga y normaliza todos los datasets (JSON, Parquet, Excel, CSV) con validaciones y cache `@st.cache_data`.
+25. **Gráficas separadas** — `app/charts.py`: 7 funciones (`crear_linea_mensual`, `crear_linea_semanal`, `crear_proyeccion_nacional`, `crear_proyeccion_departamental`, `crear_proyeccion_municipal`, `tabla_escenarios`). Paleta institucional en `constants.py`.
+26. **Mapas separados** — `app/maps.py`: 5 funciones (`crear_mapa_departamental`, `crear_mapa_municipal`, `agregar_overlay_confiabilidad_baja`, `crear_mapa_proyeccion_animado`, `preparar_datos_mapa_departamental`).
+27. **Filtros centralizados** — `app/filters.py`: `init_filters`, `reset_filters`, `render_sidebar_filtros`, `render_active_filters_chips`, selectores encadenados, slider fechas.
+28. **Componentes UI reutilizables** — `app/components.py`: `render_metricas_kpi`, `render_paginacion`, `render_tarjetas_prioridad`, `preparar_dataframe_prioridad`, `tooltip`, `render_glosario`, `badge_rango`, `badge_confiabilidad`, `load_css`.
+29. **Constantes compartidas** — `app/constants.py`: Paleta, colores escenarios, orden rangos, columnas priorizadas, formato tablas, tabs, page_config.
+30. **Páginas como módulos** — `app/pages/*.py`: 7 módulos (mapa, priorizacion, mensual, semanal, proyeccion, modelos, metodologia) con función `render_tab_*`.
+31. **Orquestador delgado** — `app/streamlit_app.py`: ~180 líneas. Config → carga datos → header → sidebar → 7 tabs delegados a `pages`.
+
 **🔄 SIGUIENTES (requieren autorización):**
-24. **Iniciar Etapa M6** (Arquitectura modular): `app/data_loader.py`, `app/charts.py`, `app/maps.py`, `app/filters.py`, `app/pages/`.
-25. **Fijar dependencias** en `requirements.txt` con versiones exactas (lock).
+32. **Fijar dependencias** en `requirements.txt` con versiones exactas (lock).
 
 ---
 
 ## 12. ÚLTIMO PUNTO ESTABLE DE TRABAJO
 
-- **Commit base:** `2fa4b25` ("Etapa M4: Tablas móviles - Vista tarjeta/tabla toggle + paginación táctil + métricas KPI") en rama `feature/mobile-audit-fixes`.
-- **Rama actual:** `feature/mobile-audit-fixes` (trabajo Etapa M5 completado, sin commit aún).
-- **Archivos modificados:** `app/streamlit_app.py` (Etapas M1 + M2 + M3 + M4 + M5).
-- **Archivos nuevos:** `.streamlit/theme.toml`, `app/styles.css`, `AGENTES.md`, `PROGRESS_NUTRIPREDICT.md`, `MOBILE_AUDIT_NUTRIPREDICT.md`.
+- **Commit base:** `0b32701` ("Etapa M5: Identidad visual - Tema institucional + CSS externo + Glosario interactivo") en rama `feature/mobile-audit-fixes`.
+- **Rama actual:** `feature/mobile-audit-fixes` (trabajo Etapa M6 completado, sin commit aún).
+- **Archivos modificados:** `app/streamlit_app.py` (Etapas M1–M6, ~2700 → ~180 líneas), `app/__init__.py`.
+- **Archivos nuevos:** `.streamlit/theme.toml`, `app/styles.css`, `app/data_loader.py`, `app/charts.py`, `app/maps.py`, `app/filters.py`, `app/components.py`, `app/constants.py`, `app/pages/` (7 módulos + `__init__.py`), `AGENTES.md`, `PROGRESS_NUTRIPREDICT.md`, `MOBILE_AUDIT_NUTRIPREDICT.md`.
 - **Entorno:** `.venv` funcional (Python 3.14.7, Streamlit 1.67.0, Plotly 7.1.0, Pandas 3.1.1).
 - **App ejecutable:** `streamlit run app/streamlit_app.py` carga sin errores (verificado 2026-11-13).
 - **Estado crítico C1–C3:** **RESUELTOS** (integridad científica restaurada).
@@ -541,6 +550,7 @@ Falta configuración de tema, servidor, logging, etc.
 - **Estado M3 mapas:** **RESUELTOS** (overlay CONFIABILIDAD BAJA, mini-mapa animado 2026-2030, tooltips enriquecidos).
 - **Estado M4 tablas:** **RESUELTOS** (métricas KPI, vista tarjeta/tabla toggle, paginación táctil, tarjetas responsivas, descarga completa).
 - **Estado M5 identidad:** **RESUELTOS** (tema .streamlit/theme.toml, CSS externalizado app/styles.css, glosario 12 términos con tooltips hover/tap).
+- **Estado M6 arquitectura:** **RESUELTOS** (14 módulos nuevos, orquestador < 200 líneas, carga datos centralizada, gráficas/mapas/filtros/componentes/páginas separados).
 
 ---
 
