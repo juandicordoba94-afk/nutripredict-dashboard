@@ -14,6 +14,68 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# ============================================================
+# INICIALIZACIÓN DE FILTROS GLOBALES EN SESSION_STATE
+# ============================================================
+def init_filters():
+    """Inicializa filtros globales en session_state si no existen."""
+    defaults = {
+        "filtro_nivel": "Municipios",
+        "filtro_departamento": "Todos",
+        "filtro_municipio": None,  # Para tabs que lo usan
+        "filtro_fecha_inicio": None,
+        "filtro_fecha_fin": None,
+    }
+    for key, val in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = val
+
+init_filters()
+
+def reset_filters():
+    """Restablece todos los filtros a valores por defecto."""
+    st.session_state["filtro_nivel"] = "Municipios"
+    st.session_state["filtro_departamento"] = "Todos"
+    st.session_state["filtro_municipio"] = None
+    st.session_state["filtro_fecha_inicio"] = None
+    st.session_state["filtro_fecha_fin"] = None
+    # También limpiar claves específicas de tabs
+    for key in list(st.session_state.keys()):
+        if key.startswith(("departamento_", "municipio_", "rango_")):
+            del st.session_state[key]
+
+def render_active_filters_chips():
+    """Muestra chips de filtros activos arriba de cada tab."""
+    chips = []
+    if st.session_state["filtro_nivel"] != "Municipios":
+        chips.append(f"📍 Nivel: {st.session_state['filtro_nivel']}")
+    if st.session_state["filtro_departamento"] != "Todos":
+        chips.append(f"🏛️ Depto: {st.session_state['filtro_departamento']}")
+    if st.session_state.get("filtro_municipio"):
+        chips.append(f"🏘️ Mpio: {st.session_state['filtro_municipio']}")
+    if st.session_state.get("filtro_fecha_inicio") and st.session_state.get("filtro_fecha_fin"):
+        chips.append(f"📅 {st.session_state['filtro_fecha_inicio']} – {st.session_state['filtro_fecha_fin']}")
+    
+    if chips:
+        chip_html = "".join(
+            f'<span style="display:inline-block; background:#eaf3ed; color:#176b50; '
+            f'padding:0.25rem 0.75rem; margin:0.25rem 0.5rem 0.25rem 0; '
+            f'border-radius:999px; font-size:0.85rem; border:1px solid #176b50;">{c}</span>'
+            for c in chips
+        )
+        st.markdown(
+            f'<div style="margin-bottom:0.5rem;">{chip_html}'
+            f'<button onclick="window.parent.postMessage({{type:\"streamlit:setComponentValue\", value:true}}, \"*\")" '
+            f'style="margin-left:0.5rem; background:#c94c4c; color:white; border:none; border-radius:999px; '
+            f'padding:0.25rem 0.75rem; font-size:0.85rem; cursor:pointer;" '
+            f'title="Restablecer filtros">🔄</button></div>',
+            unsafe_allow_html=True,
+        )
+        # Botón real de Streamlit para reset (el HTML es solo visual)
+        if st.button("🔄 Restablecer filtros", key="reset_global_top", use_container_width=False, help="Limpiar todos los filtros"):
+            reset_filters()
+            st.rerun()
+
 st.markdown(
     """
     <style>
@@ -712,101 +774,78 @@ tab_mapa, tab_priorizacion, tab_mensual, tab_semanal, tab_proyeccion, tab_modelo
      "Metodología y limitaciones"]
 )
 
-# Estado del sidebar (colapsado por defecto, se abre con botón en header)
-if "sidebar_open" not in st.session_state:
-    st.session_state["sidebar_open"] = False
+# ============================================================
+# FILTROS GLOBALES — Sidebar (siempre usa session_state)
+# ============================================================
+# Los filtros se guardan en session_state y persisten aunque el sidebar esté colapsado
 
-# Sidebar condicional
+# Sidebar condicional (solo renderiza controles si está abierto)
 if st.session_state["sidebar_open"]:
-    st.sidebar.header("Filtros")
+    st.sidebar.header("Filtros globales")
 
+    # Nivel territorial — sincroniza con session_state
     nivel = st.sidebar.radio(
         "Nivel territorial",
         ["Departamentos", "Municipios"],
         horizontal=True,
+        index=0 if st.session_state["filtro_nivel"] == "Departamentos" else 1,
+        key="sidebar_nivel",
+        on_change=lambda: setattr(st.session_state, "filtro_nivel", st.session_state["sidebar_nivel"]),
     )
 
+    # Departamento — sincroniza con session_state
+    departamentos_list = ["Todos"] + sorted(df["DPTO"].dropna().unique().tolist())
+    dept_index = departamentos_list.index(st.session_state["filtro_departamento"]) if st.session_state["filtro_departamento"] in departamentos_list else 0
     departamento = st.sidebar.selectbox(
         "Departamento",
-        ["Todos"] + sorted(df["DPTO"].dropna().unique().tolist()),
+        departamentos_list,
+        index=dept_index,
+        key="sidebar_departamento",
+        on_change=lambda: setattr(st.session_state, "filtro_departamento", st.session_state["sidebar_departamento"]),
     )
 
-    df_vista = df.copy()
+    # Botón de reset en sidebar
+    st.sidebar.divider()
+    if st.sidebar.button("🔄 Restablecer filtros", use_container_width=True, key="reset_sidebar"):
+        reset_filters()
+        st.rerun()
 
-    if departamento != "Todos":
-        df_vista = df_vista[df_vista["DPTO"] == departamento]
-
-    if nivel == "Departamentos":
-        mapa = (
-            df_vista
-            .groupby(["CODDPTO", "DPTO"], as_index=False)["PROY_2030"]
-            .sum(min_count=1)
+    # Info de filtros activos en sidebar
+    if st.session_state["filtro_nivel"] != "Municipios" or st.session_state["filtro_departamento"] != "Todos":
+        st.sidebar.caption(
+            f"Activo: {st.session_state['filtro_nivel']} • {st.session_state['filtro_departamento']}"
         )
 
-        fig = px.choropleth(
-            mapa,
-            geojson=geo_dep,
-            locations="CODDPTO",
-            featureidkey="properties.divipola_dep",
-            color="PROY_2030",
-            hover_name="DPTO",
-            hover_data=["PROY_2030"],
-            color_continuous_scale="YlOrRd",
-            title="Escenario central 2030: total por departamento",
-        )
+# --- df_vista SIEMPRE usa filtros globales (independiente de sidebar abierto/cerrado) ---
+df_vista = df.copy()
+nivel = st.session_state["filtro_nivel"]
+departamento = st.session_state["filtro_departamento"]
 
-    else:
-        # D1: range_color dinámico según datos reales (IPR 27.9–99.5)
-        ipr_min = float(df_vista["IPR"].min())
-        ipr_max = float(df_vista["IPR"].max())
-        fig = px.choropleth(
-            df_vista,
-            geojson=geo_mun,
-            locations="DIVIPOLA",
-            featureidkey="properties.divipola_mun",
-            color="IPR",
-            hover_name="MUNICIPIO",
-            # D2: hovertemplate rico para tocar en móvil (no solo hover)
-            custom_data=["DPTO", "PROY_2030", "CASOS_PRED", "RANGO", "CONFIABILIDAD", "IPR"],
-            hovertemplate=(
-                "<b>%{hovertext}</b><br>" +
-                "Departamento: %{customdata[0]}<br>" +
-                "IPR: %{customdata[5]:.2f}<br>" +
-                "Proyección 2030: %{customdata[1]:.0f}<br>" +
-                "Casos predichos: %{customdata[2]:.0f}<br>" +
-                "Rango: %{customdata[3]}<br>" +
-                "Confiabilidad: %{customdata[4]}<extra></extra>"
-            ),
-            color_continuous_scale="YlOrRd",
-            range_color=(ipr_min, ipr_max),
-            title="Índice de Priorización Municipal (IPR)",
-        )
+if departamento != "Todos":
+    df_vista = df_vista[df_vista["DPTO"] == departamento]
 
-    fig.update_geos(
-        fitbounds="locations",
-        visible=False,
-        projection_type="mercator",
+# Construir figura del mapa según nivel y df_vista
+if nivel == "Departamentos":
+    mapa = (
+        df_vista
+        .groupby(["CODDPTO", "DPTO"], as_index=False)["PROY_2030"]
+        .sum(min_count=1)
     )
 
-    fig.update_layout(
-        height=450,
-        margin=dict(l=0, r=0, t=50, b=0),
-        # Colorbar con valores numéricos (D3)
-        coloraxis_showscale=True,
-        coloraxis_colorbar=dict(
-            title="IPR" if nivel == "Municipios" else "Casos 2030",
-            len=0.75,
-            thickness=15,
-            tickfont=dict(size=11),
-        ),
+    fig = px.choropleth(
+        mapa,
+        geojson=geo_dep,
+        locations="CODDPTO",
+        featureidkey="properties.divipola_dep",
+        color="PROY_2030",
+        hover_name="DPTO",
+        hover_data=["PROY_2030"],
+        color_continuous_scale="YlOrRd",
+        title="Escenario central 2030: total por departamento",
     )
 
 else:
-    # Sidebar cerrado: usar vista por defecto (Municipios, Todos)
-    df_vista = df.copy()
-    nivel = "Municipios"
-    departamento = "Todos"
-
+    # D1: range_color dinámico según datos reales (IPR 27.9–99.5)
     ipr_min = float(df_vista["IPR"].min())
     ipr_max = float(df_vista["IPR"].max())
     fig = px.choropleth(
@@ -816,40 +855,45 @@ else:
         featureidkey="properties.divipola_mun",
         color="IPR",
         hover_name="MUNICIPIO",
+        # D2: hovertemplate rico para tocar en móvil (no solo hover)
         custom_data=["DPTO", "PROY_2030", "CASOS_PRED", "RANGO", "CONFIABILIDAD", "IPR"],
-        hovertemplate=(
-            "<b>%{hovertext}</b><br>" +
-            "Departamento: %{customdata[0]}<br>" +
-            "IPR: %{customdata[5]:.2f}<br>" +
-            "Proyección 2030: %{customdata[1]:.0f}<br>" +
-            "Casos predichos: %{customdata[2]:.0f}<br>" +
-            "Rango: %{customdata[3]}<br>" +
-            "Confiabilidad: %{customdata[4]}<extra></extra>"
-        ),
         color_continuous_scale="YlOrRd",
         range_color=(ipr_min, ipr_max),
         title="Índice de Priorización Municipal (IPR)",
     )
 
-    fig.update_geos(
-        fitbounds="locations",
-        visible=False,
-        projection_type="mercator",
+    fig.update_traces(
+        hovertemplate=(
+            "<b>%{hovertext}</b><br>"
+            "Departamento: %{customdata[0]}<br>"
+            "IPR: %{customdata[5]:.2f}<br>"
+            "Proyección 2030: %{customdata[1]:.0f}<br>"
+            "Casos predichos: %{customdata[2]:.0f}<br>"
+            "Rango: %{customdata[3]}<br>"
+            "Confiabilidad: %{customdata[4]}<extra></extra>"
+        )
     )
 
-    fig.update_layout(
-        height=450,
-        margin=dict(l=0, r=0, t=50, b=0),
-        coloraxis_showscale=True,
-        coloraxis_colorbar=dict(
-            title="IPR",
-            len=0.75,
-            thickness=15,
-            tickfont=dict(size=11),
-        ),
-    )
+fig.update_geos(
+    fitbounds="locations",
+    visible=False,
+    projection_type="mercator",
+)
+
+fig.update_layout(
+    height=450,
+    margin=dict(l=0, r=0, t=50, b=0),
+    coloraxis_showscale=True,
+    coloraxis_colorbar=dict(
+        title="IPR" if nivel == "Municipios" else "Casos 2030",
+        len=0.75,
+        thickness=15,
+        tickfont=dict(size=11),
+    ),
+)
 
 with tab_mapa:
+    render_active_filters_chips()
     st.plotly_chart(fig, use_container_width=True)
 
     st.caption(
@@ -859,6 +903,7 @@ with tab_mapa:
     )
 
 with tab_priorizacion:
+    render_active_filters_chips()
     st.subheader("Priorización municipal")
 
     st.caption(
@@ -982,6 +1027,7 @@ with tab_priorizacion:
     )
 
 with tab_mensual:
+    render_active_filters_chips()
     st.subheader("Evolución mensual por municipio")
 
     st.caption(
@@ -1141,6 +1187,7 @@ with tab_mensual:
             )
 
 with tab_semanal:
+    render_active_filters_chips()
     st.subheader("Evolución semanal por municipio")
     st.caption(
         "La línea muestra casos notificados por semana epidemiológica. "
@@ -1289,6 +1336,7 @@ with tab_semanal:
                 )
 
 with tab_proyeccion:
+    render_active_filters_chips()
     st.subheader("Proyección 2026–2030")
 
     st.caption(
@@ -1640,6 +1688,7 @@ with tab_proyeccion:
     )
 
 with tab_modelos:
+    render_active_filters_chips()
     st.subheader("Modelos y calidad de los datos")
 
     st.caption(
@@ -1921,6 +1970,7 @@ with tab_modelos:
     )
 
 with tab_metodologia:
+    render_active_filters_chips()
     st.subheader("Metodología y limitaciones")
 
     st.markdown("### Qué mide NUTRIPREDICT")

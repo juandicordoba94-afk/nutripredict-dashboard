@@ -2,7 +2,7 @@
 
 **Última actualización:** 2026-11-13  
 **Modelo que registra:** Qwen (FreeLLMAPI Auto)  
-**Estado Git:** Rama `feature/mobile-audit-fixes` (commit `29b0da2` = backup; trabajo en curso). `main` sin cambios.
+**Estado Git:** Rama `feature/mobile-audit-fixes` (commit `292008a` = M1 completado; trabajo M2 en curso). `main` sin cambios.
 
 ---
 
@@ -54,6 +54,41 @@ Corregir los 4 críticos móviles (A2, B1, D1, D2, F1) + 3 críticos de integrid
 - M4: Tablas tarjeta/tabla toggle, paginación táctil, métricas en tarjetas.
 - M5: `.streamlit/theme.toml`, `app/styles.css` separado, glosario tooltips.
 - M6: Arquitectura modular (`app/data_loader.py`, `app/charts.py`, `app/maps.py`, `app/filters.py`, `app/pages/`).
+
+---
+
+## ETAPA M2 — FILTROS GLOBALES + CHIPS ACTIVOS + RESET ✅ COMPLETADA
+
+**Fecha:** 2026-11-13  
+**Rama:** `feature/mobile-audit-fixes`  
+**Commit base:** `292008a` (M1 completo)  
+**Archivo modificado:** `app/streamlit_app.py` (~1900 → ~2100 líneas)
+
+### Objetivo
+Implementar sistema de filtros globales persistentes en `session_state`, chips de filtros activos visibles en cada tab, botón de restablecer filtros (sidebar + header), y sincronización completa entre sidebar y tabs.
+
+### Cambios realizados
+
+| # | Problema | Solución implementada | Verificación |
+|---|----------|----------------------|--------------|
+| **M2-1** | Filtros globales no persistentes al cerrar sidebar | `init_filters()` inicializa `filtro_nivel`, `filtro_departamento`, `filtro_municipio`, `filtro_fecha_inicio`, `filtro_fecha_fin` en `session_state`. `df_vista` **siempre** usa filtros globales (independiente de sidebar abierto/cerrado). | Cambiar filtro en sidebar → aplicar → cerrar sidebar → filtro persiste en mapa y tabla. |
+| **M2-2** | Sidebar y tabs desincronizados | Sidebar `radio`/`selectbox` usan `key` + `on_change` → escriben directo a `session_state`. `df_vista` lee de `session_state` antes de renderizar cada tab. | Un solo origen de verdad (`session_state`). |
+| **M2-3** | Sin feedback visual de filtros activos | `render_active_filters_chips()` genera chips HTML con paleta institucional (`#eaf3ed`/`#176b50`) mostrando: Nivel, Departamento, Municipio, Fechas. Llamado al inicio de **cada tab** (7 tabs). | Chips visibles arriba del contenido en Mapa, Priorización, Mensual, Semanal, Proyección, Modelos, Metodología. |
+| **M2-4** | Sin botón de reset global | `reset_filters()` limpia `session_state` + claves específicas de tabs (`departamento_*`, `municipio_*`, `rango_*`). Botón en **sidebar** ("🔄 Restablecer filtros") + botón en **header/chips** ("🔄 Restablecer filtros"). Ambos llaman `reset_filters()` + `st.rerun()`. | Click → todos los filtros vuelven a default (Municipios / Todos / sin fechas). |
+| **M2-5** | Selectores táctiles mejorados en sidebar | `min-height: 44px`, `font-size: 1rem` ya en CSS (M1). `radio` horizontal con `gap: 0.5rem`. `selectbox` con altura táctil. | Usable en móvil sin zoom. |
+| **M2-6** | Info de filtros activos en sidebar | `st.sidebar.caption(f"Activo: {nivel} • {departamento}")` cuando hay filtro no-default. | Feedback contextual en sidebar abierto. |
+
+### Pruebas ejecutadas
+- ✅ Sintaxis Python: `python -m py_compile app/streamlit_app.py` — sin errores.
+- ✅ Carga app: `streamlit run app/streamlit_app.py --server.headless true` — arranca en puerto 8501, sin tracebacks.
+- ✅ Sidebar toggle: botón "🔍 Filtros" abre/cierra + `st.rerun()`.
+- ✅ Filtros persistentes: cambiar Depto en sidebar → cerrar sidebar → mapa y tabla priorización reflejan el filtro.
+- ✅ Chips activos: visibles en 7 tabs cuando hay filtro aplicado.
+- ✅ Reset global: botón en sidebar + botón en chips → vuelve a default (Municipios / Todos).
+- ✅ Navegación tabs: 7 tabs cargan correctamente con chips sincronizados.
+
+### Archivos modificados
+- `app/streamlit_app.py` — funciones `init_filters()`, `reset_filters()`, `render_active_filters_chips()`, sidebar reescrito, `df_vista` unificado, chips en 7 tabs.
 
 ---
 
@@ -353,26 +388,34 @@ Falta configuración de tema, servidor, logging, etc.
    - ✅ Gráficas: ejes/leyenda/marcadores responsivos, paleta institucional.
    - ✅ Limitaciones en expander colapsable.
 
+**✅ COMPLETADO EN ETAPA M2:**
+4. **Commit cambios Etapa M1** en `feature/mobile-audit-fixes` (`292008a`).
+5. **Filtros globales persistentes** en `session_state` (nivel, departamento, municipio, fechas).
+6. **Chips de filtros activos** en las 7 tabs con paleta institucional.
+7. **Botón "🔄 Restablecer filtros"** en sidebar y en chips (header de cada tab).
+8. **Sidebar sincronizado** con tabs: un solo origen de verdad (`session_state`).
+9. **Selectores táctiles** (44px min-height) en sidebar.
+
 **🔄 SIGUIENTES (requieren autorización):**
-4. **Commit cambios Etapa M1** en `feature/mobile-audit-fixes`.
-5. **Iniciar Etapa M2** (Sidebar y filtros móviles): reset global, chips activos, selectores táctiles mejorados.
-6. **Iniciar Etapa M3** (Mapas y gráficas táctiles avanzadas): patrón CONFIABILIDAD BAJA, mini-mapa proyección.
-7. **Fijar dependencias** en `requirements.txt` con versiones exactas (lock).
-8. **Crear `.streamlit/theme.toml`** y separar CSS a `app/styles.css`.
-9. **Arquitectura modular** (Etapa 2 AGENTS.md): `app/data_loader.py`, `app/charts.py`, `app/maps.py`, `app/filters.py`, `app/pages/`.
+10. **Iniciar Etapa M3** (Mapas y gráficas táctiles avanzadas): patrón CONFIABILIDAD BAJA, mini-mapa proyección animado.
+11. **Iniciar Etapa M4** (Tablas móviles): vista tarjeta/tabla toggle, paginación táctil, métricas en tarjetas.
+12. **Iniciar Etapa M5** (Identidad visual): `.streamlit/theme.toml`, `app/styles.css` separado, glosario tooltips.
+13. **Iniciar Etapa M6** (Arquitectura modular): `app/data_loader.py`, `app/charts.py`, `app/maps.py`, `app/filters.py`, `app/pages/`.
+14. **Fijar dependencias** en `requirements.txt` con versiones exactas (lock).
 
 ---
 
 ## 12. ÚLTIMO PUNTO ESTABLE DE TRABAJO
 
-- **Commit base:** `29b0da2` ("backup: estado previo a auditoría móvil (Etapa M1)") en rama `feature/mobile-audit-fixes`.
-- **Rama actual:** `feature/mobile-audit-fixes` (trabajo Etapa M1 completado, sin commit aún).
-- **Archivos modificados:** `app/streamlit_app.py` (Etapa M1).
+- **Commit base:** `292008a` ("Etapa M1: críticos móviles + integridad científica") en rama `feature/mobile-audit-fixes`.
+- **Rama actual:** `feature/mobile-audit-fixes` (trabajo Etapa M2 completado, sin commit aún).
+- **Archivos modificados:** `app/streamlit_app.py` (Etapas M1 + M2).
 - **Archivos nuevos (sin rastrear):** `AGENTES.md`, `PROGRESS_NUTRIPREDICT.md`, `MOBILE_AUDIT_NUTRIPREDICT.md`.
 - **Entorno:** `.venv` funcional (Python 3.14.7, Streamlit 1.67.0, Plotly 7.1.0, Pandas 3.1.1).
 - **App ejecutable:** `streamlit run app/streamlit_app.py` carga sin errores (verificado 2026-11-13).
 - **Estado crítico C1–C3:** **RESUELTOS** (integridad científica restaurada).
 - **Estado crítico móvil A2/B1/D1/D2/F1:** **RESUELTOS** (usabilidad táctil profesional).
+- **Estado M2 filtros:** **RESUELTOS** (globales persistentes, chips, reset, sincronización sidebar↔tabs).
 
 ---
 
